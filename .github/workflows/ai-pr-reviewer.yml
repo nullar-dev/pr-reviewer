@@ -1,0 +1,30 @@
+# Example workflow: MiniMax leader + GLM-4.7 helper
+#
+# This workflow uses MiniMax-M2.5 as the leader for validation
+# and GLM-4.7 as a helper for parallel code review
+
+name: Code Review
+
+on:
+  pull_request:
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: nullar-dev/pr-reviewer@latest
+        env:
+          # Leader (MiniMax)
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          
+          # Helper (GLM)
+          GLM_API_KEY: ${{ secrets.GLM_API_KEY }}
+        with:
+          # Leader configuration
+          leader_model: MiniMax-M2.5
+          leader_api_base_url: https://api.minimax.io/v1
+          leader_api_key_env: AI_API_KEY
+          
+          # Helper configuration - GLM-4.7
+          helper_models: '[{"model":"GLM-4.7","apiBaseUrl":"https://api.z.ai/api/paas/v4","apiKeyEnv":"GLM_API_KEY"}]'
