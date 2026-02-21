@@ -1,5 +1,5 @@
 {
-  "name": "openai-pr-reviewer",
+  "name": "nullar-ai-pr-reviewer",
   "version": "0.0.0",
   "private": true,
   "description": "AI-based PR Reviewer and Summarizer with multi-LLM support.",
@@ -19,9 +19,13 @@
     "url": "git+https://github.com/nullar-dev/pr-reviewer.git"
   },
   "keywords": [
-    "actions",
-    "node",
-    "setup"
+    "nullarai",
+    "pr-reviewer",
+    "ai-code-review",
+    "llm",
+    "minimax",
+    "glm",
+    "github-actions"
   ],
   "license": "UNLICENSED",
   "dependencies": {
