@@ -20,7 +20,7 @@ Choose your AI provider:
 | Provider | Cost | Quality | Sign Up |
 |----------|------|---------|---------|
 | **MiniMax** (recommended) | Cheap | Great | https://platform.minimax.io/ |
-| **GLM** | Cheap | Great | https://open.bigmodel.cn/ |
+| **GLM** (Z.ai global) | Cheap | Great | https://z.ai/ |
 | **OpenAI** | Medium | Excellent | https://platform.openai.com/ |
 | **Ollama** | Free (local) | Good | https://ollama.com/ |
 
