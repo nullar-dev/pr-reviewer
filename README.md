@@ -159,11 +159,14 @@ with:
     Skip: formatting, typos, comments.
 ```
 
-## Conversation with NullarAI
+## Reply to Review Comments
 
-Reply to review comments or tag `@nullarai` for follow-up:
+NullarAI responds to comments on PR diffs. Tag it or reply to its comments:
 
-> @nullarai Explain this security concern
+- **Ask questions**: "@nullarai explain this security concern"
+- **Request code**: "@nullarai write tests for this function"
+- **Get explanations**: "@nullarai what does this method do?"
+- **Follow instructions**: Any request in the comment will be answered
 
 ### Ignoring PRs
 
