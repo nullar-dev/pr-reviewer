@@ -6,7 +6,7 @@ import {
   warning
 } from '@actions/core'
 import {Bot} from './bot'
-import {OpenAIOptions, Options} from './options'
+import {Options, ProviderOptions} from './options'
 import {Prompts} from './prompts'
 import {codeReview} from './review'
 import {handleReviewComment} from './review-comment'
@@ -21,18 +21,26 @@ async function run(): Promise<void> {
     getBooleanInput('review_comment_lgtm'),
     getMultilineInput('path_filters'),
     getInput('system_message'),
+    getInput('leader_model'),
+    getInput('leader_api_base_url'),
+    getInput('leader_api_key_env'),
+    getInput('helper_models'),
+    getInput('model_temperature'),
+    getInput('api_retries'),
+    getInput('api_timeout_ms'),
+    getInput('llm_concurrency_limit'),
+    getInput('github_concurrency_limit'),
+    getInput('api_base_url'),
+    getInput('language'),
     getInput('openai_light_model'),
     getInput('openai_heavy_model'),
     getInput('openai_model_temperature'),
     getInput('openai_retries'),
     getInput('openai_timeout_ms'),
     getInput('openai_concurrency_limit'),
-    getInput('github_concurrency_limit'),
-    getInput('openai_base_url'),
-    getInput('language')
+    getInput('openai_base_url')
   )
 
-  // print options
   options.print()
 
   const prompts: Prompts = new Prompts(
@@ -40,53 +48,61 @@ async function run(): Promise<void> {
     getInput('summarize_release_notes')
   )
 
-  // Create two bots, one for summary and one for review
-
-  let lightBot: Bot | null = null
+  let leaderBot: Bot
   try {
-    lightBot = new Bot(
+    leaderBot = new Bot(
       options,
-      new OpenAIOptions(options.openaiLightModel, options.lightTokenLimits)
+      new ProviderOptions(
+        options.leaderModel,
+        options.leaderTokenLimits,
+        options.leaderApiBaseUrl,
+        options.leaderApiKeyEnv
+      )
     )
-  } catch (e: any) {
+  } catch (e) {
     warning(
-      `Skipped: failed to create summary bot, please check your openai_api_key: ${e}, backtrace: ${e.stack}`
+      `Skipped: failed to create leader bot, please check your credentials: ${e}`
     )
     return
   }
 
-  let heavyBot: Bot | null = null
-  try {
-    heavyBot = new Bot(
-      options,
-      new OpenAIOptions(options.openaiHeavyModel, options.heavyTokenLimits)
-    )
-  } catch (e: any) {
-    warning(
-      `Skipped: failed to create review bot, please check your openai_api_key: ${e}, backtrace: ${e.stack}`
-    )
-    return
+  const helperBots: Bot[] = []
+  for (const helper of options.helperConfigs) {
+    try {
+      helperBots.push(
+        new Bot(
+          options,
+          new ProviderOptions(
+            helper.model,
+            null,
+            helper.apiBaseUrl,
+            helper.apiKeyEnv
+          )
+        )
+      )
+    } catch (e) {
+      warning(
+        `Skipped helper model '${helper.model}' due to initialization failure: ${e}`
+      )
+    }
   }
 
   try {
-    // check if the event is pull_request
     if (
       process.env.GITHUB_EVENT_NAME === 'pull_request' ||
       process.env.GITHUB_EVENT_NAME === 'pull_request_target'
     ) {
-      await codeReview(lightBot, heavyBot, options, prompts)
-    } else if (
-      process.env.GITHUB_EVENT_NAME === 'pull_request_review_comment'
-    ) {
-      await handleReviewComment(heavyBot, options, prompts)
+      await codeReview(leaderBot, helperBots, options, prompts)
+    } else if (process.env.GITHUB_EVENT_NAME === 'pull_request_review_comment') {
+      await handleReviewComment(leaderBot, options, prompts)
     } else {
-      warning('Skipped: this action only works on push events or pull_request')
+      warning('Skipped: this action only works on pull_request events')
     }
-  } catch (e: any) {
+  } catch (e) {
     if (e instanceof Error) {
       setFailed(`Failed to run: ${e.message}, backtrace: ${e.stack}`)
     } else {
-      setFailed(`Failed to run: ${e}, backtrace: ${e.stack}`)
+      setFailed(`Failed to run: ${e}`)
     }
   }
 }
@@ -95,8 +111,8 @@ process
   .on('unhandledRejection', (reason, p) => {
     warning(`Unhandled Rejection at Promise: ${reason}, promise is ${p}`)
   })
-  .on('uncaughtException', (e: any) => {
-    warning(`Uncaught Exception thrown: ${e}, backtrace: ${e.stack}`)
+  .on('uncaughtException', (e: unknown) => {
+    warning(`Uncaught Exception thrown: ${e}`)
   })
 
 await run()

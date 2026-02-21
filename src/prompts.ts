@@ -3,6 +3,58 @@ import {type Inputs} from './inputs'
 export class Prompts {
   summarize: string
   summarizeReleaseNotes: string
+  leaderValidation = `## GitHub PR Title
+
+\`$title\`
+
+## Description
+
+\`\`\`
+$description
+\`\`\`
+
+## Summary of changes
+
+\`\`\`
+$short_summary
+\`\`\`
+
+## Unified findings from all reviewers
+
+\`\`\`
+$all_findings
+\`\`\`
+
+## Patch context
+
+$patches
+
+## Task
+
+You are the leader reviewer. Validate every candidate finding against the patch context.
+Reject findings that are incorrect, duplicates, too vague, or not actionable.
+
+Severity must be one of: critical, major, minor, nit.
+
+Return EXACTLY this format:
+
+### Accepted Findings
+<one finding per block>
+[SEVERITY]: <critical|major|minor|nit>
+[FILE]: <path>
+[LINES]: <start>-<end>
+[TITLE]: <short title>
+[DETAILS]: <specific rationale and recommended fix>
+---
+
+### Discarded Findings
+<one finding per block>
+[REASON]: <why discarded>
+[ORIGINAL]: <original finding text>
+---
+
+If no accepted findings exist, still include both sections and use the text "None" in each section.
+`
 
   summarizeFileDiff = `## GitHub PR Title
 
@@ -278,5 +330,9 @@ $comment
 
   renderReviewFileDiff(inputs: Inputs): string {
     return inputs.render(this.reviewFileDiff)
+  }
+
+  renderLeaderValidation(inputs: Inputs): string {
+    return inputs.render(this.leaderValidation)
   }
 }

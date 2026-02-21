@@ -3,7 +3,7 @@ description: 'AI-based PR Reviewer & Summarizer with Chat Capabilities'
 branding:
   icon: 'git-merge'
   color: 'orange'
-author: 'CodeRabbit LLC'
+author: 'NullarAI LLC'
 inputs:
   debug:
     required: false
@@ -144,46 +144,82 @@ inputs:
     required: false
     description: 'Disable release notes'
     default: 'false'
+  api_base_url:
+    required: false
+    description: 'Default base URL for provider-compatible chat completions.'
+    default: 'https://api.minimax.io/v1'
+  leader_model:
+    required: false
+    description: 'Leader model used for summary, validation, and final decisions.'
+    default: 'MiniMax-M2.5'
+  leader_api_base_url:
+    required: false
+    description: 'Leader model API base URL.'
+    default: 'https://api.minimax.io/v1'
+  leader_api_key_env:
+    required: false
+    description: 'Environment variable name that contains leader API key.'
+    default: 'AI_API_KEY'
+  helper_models:
+    required: false
+    description: 'JSON array of helper model configs: [{"model":"...","apiBaseUrl":"...","apiKeyEnv":"..."}]'
+    default: '[]'
+  model_temperature:
+    required: false
+    description: 'Temperature for model responses'
+    default: '0.05'
+  api_retries:
+    required: false
+    description: 'Retry count for provider API calls'
+    default: '5'
+  api_timeout_ms:
+    required: false
+    description: 'Timeout for provider API call in milliseconds'
+    default: '360000'
+  llm_concurrency_limit:
+    required: false
+    description: 'How many concurrent API calls to make to LLM providers?'
+    default: '6'
   openai_base_url:
     required: false
-    description: 'The url of the openai api interface.'
-    default: 'https://api.openai.com/v1'
+    description:
+      'Deprecated alias for api_base_url. Use api_base_url instead.'
+    default: ''
   openai_light_model:
     required: false
     description:
-      'Model to use for simple tasks like summarizing diff on a file.'
-    default: 'gpt-3.5-turbo'
+      'Deprecated alias for leader_model. Use leader_model instead.'
+    default: ''
   openai_heavy_model:
     required: false
-    description: 'Model to use for complex tasks such as code reviews.'
-    default: 'gpt-4'
+    description: 'Deprecated alias. Ignored; kept for backward compatibility.'
+    default: ''
   openai_model_temperature:
     required: false
-    description: 'Temperature for GPT model'
-    default: '0.05'
+    description: 'Deprecated alias for model_temperature. Use model_temperature instead.'
+    default: ''
   openai_retries:
     required: false
-    description:
-      'How many times to retry OpenAI API in case of timeouts or errors?'
-    default: '5'
+    description: 'Deprecated alias for api_retries. Use api_retries instead.'
+    default: ''
   openai_timeout_ms:
     required: false
-    description: 'Timeout for OpenAI API call in millis'
-    default: '360000'
+    description: 'Deprecated alias for api_timeout_ms. Use api_timeout_ms instead.'
+    default: ''
   openai_concurrency_limit:
     required: false
-    description: 'How many concurrent API calls to make to OpenAI servers?'
-    default: '6'
+    description: 'Deprecated alias for llm_concurrency_limit. Use llm_concurrency_limit instead.'
+    default: ''
   github_concurrency_limit:
     required: false
     description: 'How many concurrent API calls to make to GitHub?'
     default: '6'
   system_message:
     required: false
-    description: 'System message to be sent to OpenAI'
+    description: 'System message to be sent to the leader/helper models'
     default: |
-      You are `@coderabbitai` (aka `github-actions[bot]`), a language model 
-      trained by OpenAI. Your purpose is to act as a highly experienced 
+      You are `@nullarai` (aka `github-actions[bot]`), a language model 
+      trained for code review. Your purpose is to act as a highly experienced 
       software engineer and provide a thorough review of the code hunks
       and suggest code snippets to improve key areas such as:
         - Logic
@@ -237,7 +273,7 @@ inputs:
   bot_icon:
     required: false
     description: 'The icon for the bot'
-    default: '<img src="https://avatars.githubusercontent.com/in/347564?s=41" alt="Image description" width="20" height="20">'
+    default: '<img src="https://avatars.githubusercontent.com/u/256998799?s=41" alt="Image description" width="20" height="20">'
 runs:
   using: 'node16'
   main: 'dist/index.js'

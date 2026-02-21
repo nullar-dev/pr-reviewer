@@ -1,68 +1,42 @@
 import './fetch-polyfill'
 
 import {info, setFailed, warning} from '@actions/core'
-import {
-  ChatGPTAPI,
-  ChatGPTError,
-  ChatMessage,
-  SendMessageOptions
-  // eslint-disable-next-line import/no-unresolved
-} from 'chatgpt'
+import OpenAI from 'openai'
 import pRetry from 'p-retry'
-import {OpenAIOptions, Options} from './options'
+import {Options, ProviderOptions} from './options'
 
-// define type to save parentMessageId and conversationId
 export interface Ids {
-  parentMessageId?: string
-  conversationId?: string
+  messages?: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
 }
 
 export class Bot {
-  private readonly api: ChatGPTAPI | null = null // not free
-
+  private readonly client: OpenAI | null = null
   private readonly options: Options
+  private readonly providerOptions: ProviderOptions
 
-  constructor(options: Options, openaiOptions: OpenAIOptions) {
+  constructor(options: Options, providerOptions: ProviderOptions) {
     this.options = options
-    if (process.env.OPENAI_API_KEY) {
-      const currentDate = new Date().toISOString().split('T')[0]
-      const systemMessage = `${options.systemMessage} 
-Knowledge cutoff: ${openaiOptions.tokenLimits.knowledgeCutOff}
-Current date: ${currentDate}
+    this.providerOptions = providerOptions
 
-IMPORTANT: Entire response must be in the language with ISO code: ${options.language}
-`
-
-      this.api = new ChatGPTAPI({
-        apiBaseUrl: options.apiBaseUrl,
-        systemMessage,
-        apiKey: process.env.OPENAI_API_KEY,
-        apiOrg: process.env.OPENAI_API_ORG ?? undefined,
-        debug: options.debug,
-        maxModelTokens: openaiOptions.tokenLimits.maxTokens,
-        maxResponseTokens: openaiOptions.tokenLimits.responseTokens,
-        completionParams: {
-          temperature: options.openaiModelTemperature,
-          model: openaiOptions.model
-        }
-      })
-    } else {
-      const err =
-        "Unable to initialize the OpenAI API, both 'OPENAI_API_KEY' environment variable are not available"
-      throw new Error(err)
+    const apiKey = process.env[providerOptions.apiKeyEnv]
+    if (apiKey == null || apiKey.trim() === '') {
+      throw new Error(
+        `Unable to initialize API client: environment variable '${providerOptions.apiKeyEnv}' is not set`
+      )
     }
+
+    this.client = new OpenAI({
+      apiKey,
+      baseURL: providerOptions.apiBaseUrl
+    })
   }
 
   chat = async (message: string, ids: Ids): Promise<[string, Ids]> => {
-    let res: [string, Ids] = ['', {}]
     try {
-      res = await this.chat_(message, ids)
-      return res
-    } catch (e: unknown) {
-      if (e instanceof ChatGPTError) {
-        warning(`Failed to chat: ${e}, backtrace: ${e.stack}`)
-      }
-      return res
+      return await this.chat_(message, ids)
+    } catch (e) {
+      warning(`Failed to chat: ${e}`)
+      return ['', ids]
     }
   }
 
@@ -70,59 +44,80 @@ IMPORTANT: Entire response must be in the language with ISO code: ${options.lang
     message: string,
     ids: Ids
   ): Promise<[string, Ids]> => {
-    // record timing
     const start = Date.now()
     if (!message) {
-      return ['', {}]
+      return ['', ids]
     }
 
-    let response: ChatMessage | undefined
+    if (this.client == null) {
+      setFailed('The API client is not initialized')
+      return ['', ids]
+    }
 
-    if (this.api != null) {
-      const opts: SendMessageOptions = {
-        timeoutMs: this.options.openaiTimeoutMS
+    const currentDate = new Date().toISOString().split('T')[0]
+    const systemMessage = `${this.options.systemMessage}
+Knowledge cutoff: ${this.providerOptions.tokenLimits.knowledgeCutOff}
+Current date: ${currentDate}
+
+IMPORTANT: Entire response must be in the language with ISO code: ${this.options.language}`
+
+    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+      {
+        role: 'system',
+        content: systemMessage
+      },
+      ...(ids.messages ?? []),
+      {
+        role: 'user',
+        content: message
       }
-      if (ids.parentMessageId) {
-        opts.parentMessageId = ids.parentMessageId
+    ]
+
+    const response = await pRetry(
+      async () =>
+        await this.client!.chat.completions.create(
+          {
+            model: this.providerOptions.model,
+            messages,
+            temperature: this.options.modelTemperature,
+            max_tokens: this.providerOptions.tokenLimits.responseTokens
+          },
+          {
+            timeout: this.options.apiTimeoutMS
+          }
+        ),
+      {
+        retries: this.options.apiRetries
       }
-      try {
-        response = await pRetry(() => this.api!.sendMessage(message, opts), {
-          retries: this.options.openaiRetries
-        })
-      } catch (e: unknown) {
-        if (e instanceof ChatGPTError) {
-          info(
-            `response: ${response}, failed to send message to openai: ${e}, backtrace: ${e.stack}`
-          )
-        }
-      }
-      const end = Date.now()
-      info(`response: ${JSON.stringify(response)}`)
-      info(
-        `openai sendMessage (including retries) response time: ${
-          end - start
-        } ms`
-      )
-    } else {
-      setFailed('The OpenAI API is not initialized')
+    )
+
+    const end = Date.now()
+    info(`provider chat response time: ${end - start} ms`)
+
+    const responseContent = response.choices[0]?.message?.content
+    const responseText = typeof responseContent === 'string' ? responseContent : ''
+    if (responseText === '') {
+      warning('provider response is empty')
     }
-    let responseText = ''
-    if (response != null) {
-      responseText = response.text
-    } else {
-      warning('openai response is null')
-    }
-    // remove the prefix "with " in the response
-    if (responseText.startsWith('with ')) {
-      responseText = responseText.substring(5)
-    }
+
     if (this.options.debug) {
-      info(`openai responses: ${responseText}`)
+      info(`provider response text: ${responseText}`)
     }
+
     const newIds: Ids = {
-      parentMessageId: response?.id,
-      conversationId: response?.conversationId
+      messages: [
+        ...(ids.messages ?? []),
+        {
+          role: 'user',
+          content: message
+        },
+        {
+          role: 'assistant',
+          content: responseText
+        }
+      ]
     }
+
     return [responseText, newIds]
   }
 }

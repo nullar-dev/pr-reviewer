@@ -1,68 +1,27 @@
-# CodeRabbit Pro
-
-This is an old version of [CodeRabbit](http://coderabbit.ai) and is now in the maintenance mode.
-We recommend installing the Pro version from [CodeRabbit](http://coderabbit.ai). The Pro version is a total redesign and offers significantly better reviews that learn from your usage and improve over time. CodeRabbit Pro is free for open source projects. 
-
-[![Discord](https://img.shields.io/badge/Join%20us%20on-Discord-blue?logo=discord&style=flat-square)](https://discord.gg/GsXnASn26c)
-
-# AI-based PR reviewer and summarizer
+# AI-based PR Reviewer and Summarizer
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![GitHub](https://img.shields.io/github/last-commit/coderabbitai/ai-pr-reviewer/main?style=flat-square)](https://github.com/coderabbitai/ai-pr-reviewer/commits/main)
 
 ## Overview
 
-CodeRabbit `ai-pr-reviewer` is an AI-based code reviewer and summarizer for
-GitHub pull requests using OpenAI's `gpt-3.5-turbo` and `gpt-4` models. It is
-designed to be used as a GitHub Action and can be configured to run on every
-pull request and review comments
+NullarAI `ai-pr-reviewer` is an AI-based code reviewer and summarizer for GitHub pull requests. It supports any OpenAI-compatible LLM provider (MiniMax, GLM, OpenAI, Azure OpenAI, Ollama, etc.) and is designed to be used as a GitHub Action.
 
-## Reviewer Features:
+## Features
 
-- **PR Summarization**: It generates a summary and release notes of the changes
-  in the pull request.
-- **Line-by-line code change suggestions**: Reviews the changes line by line and
-  provides code change suggestions.
-- **Continuous, incremental reviews**: Reviews are performed on each commit
-  within a pull request, rather than a one-time review on the entire pull
-  request.
-- **Cost-effective and reduced noise**: Incremental reviews save on OpenAI costs
-  and reduce noise by tracking changed files between commits and the base of the
-  pull request.
-- **"Light" model for summary**: Designed to be used with a "light"
-  summarization model (e.g. `gpt-3.5-turbo`) and a "heavy" review model (e.g.
-  `gpt-4`). _For best results, use `gpt-4` as the "heavy" model, as thorough
-  code review needs strong reasoning abilities._
-- **Chat with bot**: Supports conversation with the bot in the context of lines
-  of code or entire files, useful for providing context, generating test cases,
-  and reducing code complexity.
-- **Smart review skipping**: By default, skips in-depth review for simple
-  changes (e.g. typo fixes) and when changes look good for the most part. It can
-  be disabled by setting `review_simple_changes` and `review_comment_lgtm` to
-  `true`.
-- **Customizable prompts**: Tailor the `system_message`, `summarize`, and
-  `summarize_release_notes` prompts to focus on specific aspects of the review
-  process or even change the review objective.
+- **Multi-Provider Support**: Works with MiniMax-M2.5, GLM-4.7, GPT-4, and any OpenAI-compatible API
+- **Leader + Helpers Architecture**: One required leader AI for validation, optional helper AIs for parallel review
+- **PR Summarization**: Generates summary and release notes for pull requests
+- **Line-by-line code suggestions**: Reviews changes line by line with specific fix recommendations
+- **Incremental Reviews**: Tracks commits and only reviews new changes since last review
+- **Single Consolidated Comment**: One detailed comment with all findings, ranked by severity
+- **Smart Triage**: Automatically skips trivial changes (typos, formatting)
+- **Chat with Bot**: Reply to review comments for follow-up context
 
-To use this tool, you need to add the provided YAML file to your repository and
-configure the required environment variables, such as `GITHUB_TOKEN` and
-`OPENAI_API_KEY`. For more information on usage, examples, contributing, and
-FAQs, you can refer to the sections below.
+## Install Instructions
 
-- [Overview](#overview)
-- [Professional Version of CodeRabbit](#professional-version-of-coderabbit)
-- [Reviewer Features](#reviewer-features)
-- [Install instructions](#install-instructions)
-- [Conversation with CodeRabbit](#conversation-with-coderabbit)
-- [Examples](#examples)
-- [Contribute](#contribute)
-- [FAQs](#faqs)
+### Quick Start with MiniMax-M2.5
 
-
-## Install instructions
-
-`ai-pr-reviewer` runs as a GitHub Action. Add the below file to your repository
-at `.github/workflows/ai-pr-reviewer.yml`
+Add `.github/workflows/ai-pr-reviewer.yml`:
 
 ```yaml
 name: Code Review
@@ -77,201 +36,163 @@ on:
     types: [created]
 
 concurrency:
-  group:
-    ${{ github.repository }}-${{ github.event.number || github.head_ref ||
-    github.sha }}-${{ github.workflow }}-${{ github.event_name ==
-    'pull_request_review_comment' && 'pr_comment' || 'pr' }}
+  group: ${{ github.repository }}-${{ github.event.number || github.head_ref || github.sha }}-${{ github.workflow }}-${{ github.event_name == 'pull_request_review_comment' && 'pr_comment' || 'pr' }}
   cancel-in-progress: ${{ github.event_name != 'pull_request_review_comment' }}
 
 jobs:
   review:
     runs-on: ubuntu-latest
     steps:
-      - uses: coderabbitai/ai-pr-reviewer@latest
+      - uses: nullar-dev/pr-reviewer@latest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
         with:
           debug: false
-          review_simple_changes: false
-          review_comment_lgtm: false
 ```
 
-#### Environment variables
+### Environment Variables
 
-- `GITHUB_TOKEN`: This should already be available to the GitHub Action
-  environment. This is used to add comments to the pull request.
-- `OPENAI_API_KEY`: use this to authenticate with OpenAI API. You can get one
-  [here](https://platform.openai.com/account/api-keys). Please add this key to
-  your GitHub Action secrets.
-- `OPENAI_API_ORG`: (optional) use this to use the specified organization with
-  OpenAI API if you have multiple. Please add this key to your GitHub Action
-  secrets.
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GITHUB_TOKEN` | Yes | Auto-provided by GitHub Actions |
+| `AI_API_KEY` | Yes | Your provider API key (MiniMax, GLM, OpenAI, etc.) |
 
-### Models: `gpt-4` and `gpt-3.5-turbo`
+### Supported Providers
 
-Recommend using `gpt-3.5-turbo` for lighter tasks such as summarizing the
-changes (`openai_light_model` in configuration) and `gpt-4` for more complex
-review and commenting tasks (`openai_heavy_model` in configuration).
+#### MiniMax-M2.5 (Default)
 
-Costs: `gpt-3.5-turbo` is dirt cheap. `gpt-4` is orders of magnitude more
-expensive, but the results are vastly superior. We are typically spending $20 a
-day for a 20 developer team with `gpt-4` based review and commenting.
-
-### Prompts & Configuration
-
-See: [action.yml](./action.yml)
-
-Tip: You can change the bot personality by configuring the `system_message`
-value. For example, to review docs/blog posts, you can use the following prompt:
-
-<details>
-<summary>Blog Reviewer Prompt</summary>
+The action defaults to MiniMax-M2.5 with the following configuration:
 
 ```yaml
-system_message: |
-  You are `@coderabbitai` (aka `github-actions[bot]`), a language model
-  trained by OpenAI. Your purpose is to act as a highly experienced
-  DevRel (developer relations) professional with focus on cloud-native
-  infrastructure.
-
-  Company context -
-  CodeRabbit is an AI-powered Code reviewer.It boosts code quality and cuts manual effort. Offers context-aware, line-by-line feedback, highlights critical changes,
-  enables bot interaction, and lets you commit suggestions directly from GitHub.
-
-  When reviewing or generating content focus on key areas such as -
-  - Accuracy
-  - Relevance
-  - Clarity
-  - Technical depth
-  - Call-to-action
-  - SEO optimization
-  - Brand consistency
-  - Grammar and prose
-  - Typos
-  - Hyperlink suggestions
-  - Graphics or images (suggest Dall-E image prompts if needed)
-  - Empathy
-  - Engagement
+with:
+  leader_model: MiniMax-M2.5
+  leader_api_base_url: https://api.minimax.io/v1
+  leader_api_key_env: AI_API_KEY
 ```
 
-</details>
+Get your MiniMax API key from: https://platform.minimax.io/
 
-## Conversation with CodeRabbit
+#### GLM-4.7
 
-You can reply to a review comment made by this action and get a response based
-on the diff context. Additionally, you can invite the bot to a conversation by
-tagging it in the comment (`@coderabbitai`).
+```yaml
+with:
+  leader_model: GLM-4.7
+  leader_api_base_url: https://api.z.ai/api/paas/v4
+  leader_api_key_env: AI_API_KEY
+```
 
-Example:
+Get your GLM API key from: https://open.bigmodel.cn/
 
-> @coderabbitai Please generate a test plan for this file.
+#### OpenAI
 
-Note: A review comment is a comment made on a diff or a file in the pull
-request.
+```yaml
+with:
+  leader_model: gpt-4o
+  leader_api_base_url: https://api.openai.com/v1
+  leader_api_key_env: OPENAI_API_KEY
+```
+
+#### Azure OpenAI
+
+```yaml
+with:
+  leader_model: gpt-4
+  leader_api_base_url: https://your-resource.openai.azure.com/openai/deployments/your-deployment
+  leader_api_key_env: AZURE_OPENAI_API_KEY
+```
+
+#### Ollama (Local)
+
+```yaml
+with:
+  leader_model: llama3
+  leader_api_base_url: http://localhost:11434/v1
+  leader_api_key_env: OLLAMA_API_KEY
+```
+
+### Using Helper Models
+
+Add optional helper AIs for parallel review:
+
+```yaml
+with:
+  leader_model: MiniMax-M2.5
+  helper_models: '[{"model":"GLM-4.7","apiBaseUrl":"https://api.z.ai/api/paas/v4","apiKeyEnv":"GLM_API_KEY"}]'
+```
+
+Each helper reviews files in parallel; the leader then validates all findings.
+
+### Configuration Options
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `leader_model` | `MiniMax-M2.5` | Model for leader (validation + final decision) |
+| `leader_api_base_url` | `https://api.minimax.io/v1` | Leader API endpoint |
+| `leader_api_key_env` | `AI_API_KEY` | Env var name for leader API key |
+| `helper_models` | `[]` | JSON array of helper model configs |
+| `model_temperature` | `0.05` | Sampling temperature |
+| `api_retries` | `5` | Number of API retry attempts |
+| `api_timeout_ms` | `360000` | API call timeout (ms) |
+| `llm_concurrency_limit` | `6` | Max concurrent LLM calls |
+
+### Advanced Options
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `debug` | `false` | Enable debug logging |
+| `max_files` | `150` | Max files to review (0 = unlimited) |
+| `review_simple_changes` | `false` | Review trivial changes too |
+| `review_comment_lgtm` | `false` | Post LGTM comments |
+| `disable_review` | `false` | Only generate summary |
+| `disable_release_notes` | `false` | Skip release notes |
+| `system_message` | (see action.yml) | Custom system prompt |
+| `path_filters` | (see action.yml) | Files to include/exclude |
+
+### Custom System Message
+
+```yaml
+with:
+  system_message: |
+    You are @nullarai, an expert code reviewer.
+    Focus on: security, performance, correctness, maintainability.
+    Skip: formatting, typos, comments.
+```
+
+## Conversation with NullarAI
+
+Reply to review comments or tag `@nullarai` for follow-up:
+
+> @nullarai Explain this security concern
 
 ### Ignoring PRs
 
-Sometimes it is useful to ignore a PR. For example, if you are using this action
-to review documentation, you can ignore PRs that only change the documentation.
-To ignore a PR, add the following keyword in the PR description:
+Add `@nullarai: ignore` anywhere in the PR description to skip reviews.
 
-```text
-@coderabbitai: ignore
-```
+## Severity Rankings
 
-## Examples
+Findings are ranked by severity:
 
-Some of the reviews done by ai-pr-reviewer
+- **Critical**: Security vulnerabilities, data loss risks, crashes
+- **Major**: Bugs, logic errors, significant performance issues
+- **Minor**: Code smells, minor optimizations, style issues
+- **Nit**: Formatting, naming suggestions, trivial improvements
 
-![PR Summary](./docs/images/PRSummary.png)
-
-![PR Release Notes](./docs/images/ReleaseNotes.png)
-
-![PR Review](./docs/images/section-1.png)
-
-![PR Conversation](./docs/images/section-3.png)
-
-Any suggestions or pull requests for improving the prompts are highly
-appreciated.
-
-## Contribute
-
-### Developing
-
-> First, you'll need to have a reasonably modern version of `node` handy, tested
-> with node 17+.
-
-Install the dependencies
+## Developing
 
 ```bash
-$ npm install
+# Install dependencies
+npm install
+
+# Build TypeScript
+npm run build
+
+# Package for distribution
+npm run package
 ```
 
-Build the typescript and package it for distribution
+## Disclaimer
 
-```bash
-$ npm run build && npm run package
-```
-
-## FAQs
-
-### Review pull requests from forks
-
-GitHub Actions limits the access of secrets from forked repositories. To enable
-this feature, you need to use the `pull_request_target` event instead of
-`pull_request` in your workflow file. Note that with `pull_request_target`, you
-need extra configuration to ensure checking out the right commit:
-
-```yaml
-name: Code Review
-
-permissions:
-  contents: read
-  pull-requests: write
-
-on:
-  pull_request_target:
-    types: [opened, synchronize, reopened]
-  pull_request_review_comment:
-    types: [created]
-
-concurrency:
-  group:
-    ${{ github.repository }}-${{ github.event.number || github.head_ref ||
-    github.sha }}-${{ github.workflow }}-${{ github.event_name ==
-    'pull_request_review_comment' && 'pr_comment' || 'pr' }}
-  cancel-in-progress: ${{ github.event_name != 'pull_request_review_comment' }}
-
-jobs:
-  review:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: coderabbitai/ai-pr-reviewer@latest
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        with:
-          debug: false
-          review_simple_changes: false
-          review_comment_lgtm: false
-```
-
-See also:
-https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#pull_request_target
-
-### Inspect the messages between OpenAI server
-
-Set `debug: true` in the workflow file to enable debug mode, which will show the
-messages
-
-### Disclaimer
-
-- Your code (files, diff, PR title/description) will be sent to OpenAI's servers
-  for processing. Please check with your compliance team before using this on
-  your private code repositories.
-- OpenAI's API is used instead of ChatGPT session on their portal. OpenAI API
-  has a
-  [more conservative data usage policy](https://openai.com/policies/api-data-usage-policies)
-  compared to their ChatGPT offering.
-- This action is not affiliated with OpenAI.
+- Your code (files, diff, PR title/description) will be sent to the configured LLM provider for processing
+- Review your provider's data usage policy before using on private repositories
+- This action is not affiliated with MiniMax, GLM, OpenAI, or any other LLM provider

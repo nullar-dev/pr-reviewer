@@ -6,7 +6,19 @@ export class TokenLimits {
 
   constructor(model = 'gpt-3.5-turbo') {
     this.knowledgeCutOff = '2021-09-01'
-    if (model === 'gpt-4-32k') {
+    if (model === 'MiniMax-M2.5') {
+      this.maxTokens = 200000
+      this.responseTokens = 4000
+    } else if (model === 'GLM-4.7' || model === 'glm-4.7') {
+      this.maxTokens = 200000
+      this.responseTokens = 4000
+    } else if (model === 'gpt-4o' || model === 'gpt-4-turbo') {
+      this.maxTokens = 128000
+      this.responseTokens = 4000
+    } else if (model === 'gpt-4o-mini') {
+      this.maxTokens = 32000
+      this.responseTokens = 4000
+    } else if (model === 'gpt-4-32k') {
       this.maxTokens = 32600
       this.responseTokens = 4000
     } else if (model === 'gpt-3.5-turbo-16k') {
