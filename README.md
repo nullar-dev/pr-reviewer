@@ -1,7 +1,5 @@
 # AI-based PR Reviewer and Summarizer
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
 ## Overview
 
 NullarAI `ai-pr-reviewer` is an AI-based code reviewer and summarizer for GitHub pull requests. It supports any OpenAI-compatible LLM provider (MiniMax, GLM, OpenAI, Azure OpenAI, Ollama, etc.) and is designed to be used as a GitHub Action.

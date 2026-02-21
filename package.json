@@ -2,7 +2,7 @@
   "name": "openai-pr-reviewer",
   "version": "0.0.0",
   "private": true,
-  "description": "OpenAI-based PR Reviewer and Summarizer.",
+  "description": "AI-based PR Reviewer and Summarizer with multi-LLM support.",
   "main": "lib/main.js",
   "scripts": {
     "build": "cp node_modules/@dqbd/tiktoken/tiktoken_bg.wasm dist/tiktoken_bg.wasm && tsc",
@@ -16,14 +16,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/fluxninja/openai-pr-reviewer.git"
+    "url": "git+https://github.com/nullar-dev/pr-reviewer.git"
   },
   "keywords": [
     "actions",
     "node",
     "setup"
   ],
-  "license": "MIT",
+  "license": "UNLICENSED",
   "dependencies": {
     "@actions/core": "^1.10.0",
     "@actions/github": "^5.1.1",
