@@ -165,7 +165,7 @@ export const handleReviewComment = async (
         const shortSummaryTokens = getTokenCount(shortSummary)
         if (
           tokens + shortSummaryTokens <=
-            options.leaderTokenLimits.requestTokens
+          options.leaderTokenLimits.requestTokens
         ) {
           tokens += shortSummaryTokens
           inputs.shortSummary = shortSummary

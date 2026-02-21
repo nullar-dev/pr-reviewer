@@ -10100,6 +10100,7 @@ IMPORTANT: Entire response must be in the language with ISO code: ${this.options
             model: this.providerOptions.model,
             messages,
             temperature: this.options.modelTemperature,
+            // eslint-disable-next-line camelcase
             max_tokens: this.providerOptions.tokenLimits.responseTokens
         }, {
             timeout: this.options.apiTimeoutMS
@@ -12854,6 +12855,8 @@ class Options {
     lightTokenLimits;
     heavyTokenLimits;
     constructor(debug, disableReview, disableReleaseNotes, maxFiles = '0', reviewSimpleChanges = false, reviewCommentLGTM = false, pathFilters = null, systemMessage = '', leaderModel = 'MiniMax-M2.5', leaderApiBaseUrl = '', leaderApiKeyEnv = 'AI_API_KEY', helperModels = '', modelTemperature = '0.0', apiRetries = '3', apiTimeoutMS = '120000', llmConcurrencyLimit = '6', githubConcurrencyLimit = '6', apiBaseUrl = '', language = 'en-US', openaiLightModel = '', openaiHeavyModel = '', openaiModelTemperature = '', openaiRetries = '', openaiTimeoutMS = '', openaiConcurrencyLimit = '', openaiBaseUrl = '') {
+        // Note: openaiHeavyModel is deprecated but kept for backward compatibility
+        void openaiHeavyModel;
         const resolvedLeaderModel = leaderModel || openaiLightModel || 'MiniMax-M2.5';
         const resolvedApiBaseUrl = leaderApiBaseUrl ||
             apiBaseUrl ||
@@ -13807,14 +13810,20 @@ ${hunks.oldHunk}
         (0,core.error)('Skipped: no files to review');
         return;
     }
-    const limitedFiles = options.maxFiles > 0 ? filesAndChanges.slice(0, options.maxFiles) : filesAndChanges;
+    const limitedFiles = options.maxFiles > 0
+        ? filesAndChanges.slice(0, options.maxFiles)
+        : filesAndChanges;
     const summaryResults = await Promise.all(limitedFiles.map(([filename, , fileDiff]) => llmConcurrencyLimit(async () => {
         const ins = inputs.clone();
         ins.filename = filename;
         ins.fileDiff = fileDiff;
         const summarizePrompt = prompts.renderSummarizeFileDiff(ins, options.reviewSimpleChanges);
-        if ((0,tokenizer/* getTokenCount */.V)(summarizePrompt) > options.leaderTokenLimits.requestTokens) {
-            return [filename, 'Skipped summary: diff exceeds token budget'];
+        if ((0,tokenizer/* getTokenCount */.V)(summarizePrompt) >
+            options.leaderTokenLimits.requestTokens) {
+            return [
+                filename,
+                'Skipped summary: diff exceeds token budget'
+            ];
         }
         const [summary] = await leaderBot.chat(summarizePrompt, {});
         return [filename, summary.trim()];
@@ -14177,8 +14186,7 @@ function parseLeaderAcceptedFindings(response) {
         .filter(block => block !== '');
     const accepted = [];
     for (const block of blocks) {
-        const severity = (block.match(/\[SEVERITY\]:\s*(critical|major|minor|nit)/i)?.[1] ?? '')
-            .toLowerCase();
+        const severity = (block.match(/\[SEVERITY\]:\s*(critical|major|minor|nit)/i)?.[1] ?? '').toLowerCase();
         const file = block.match(/\[FILE\]:\s*(.+)/)?.[1]?.trim() ?? '';
         const lines = block.match(/\[LINES\]:\s*(.+)/)?.[1]?.trim() ?? '';
         const title = block.match(/\[TITLE\]:\s*(.+)/)?.[1]?.trim() ?? '';

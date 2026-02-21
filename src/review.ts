@@ -72,7 +72,9 @@ export const codeReview = async (
   const inputs = new Inputs()
   inputs.title = context.payload.pull_request.title
   if (context.payload.pull_request.body != null) {
-    inputs.description = commenter.getDescription(context.payload.pull_request.body)
+    inputs.description = commenter.getDescription(
+      context.payload.pull_request.body
+    )
   }
 
   if (inputs.description.includes(ignoreKeyword)) {
@@ -182,7 +184,10 @@ export const codeReview = async (
             contents.data.type === 'file' &&
             contents.data.content != null
           ) {
-            fileContent = Buffer.from(contents.data.content, 'base64').toString()
+            fileContent = Buffer.from(
+              contents.data.content,
+              'base64'
+            ).toString()
           }
         } catch {
           fileContent = ''
@@ -243,7 +248,9 @@ ${hunks.oldHunk}
   }
 
   const limitedFiles =
-    options.maxFiles > 0 ? filesAndChanges.slice(0, options.maxFiles) : filesAndChanges
+    options.maxFiles > 0
+      ? filesAndChanges.slice(0, options.maxFiles)
+      : filesAndChanges
 
   const summaryResults = await Promise.all(
     limitedFiles.map(([filename, , fileDiff]) =>
@@ -255,8 +262,14 @@ ${hunks.oldHunk}
           ins,
           options.reviewSimpleChanges
         )
-        if (getTokenCount(summarizePrompt) > options.leaderTokenLimits.requestTokens) {
-          return [filename, 'Skipped summary: diff exceeds token budget'] as const
+        if (
+          getTokenCount(summarizePrompt) >
+          options.leaderTokenLimits.requestTokens
+        ) {
+          return [
+            filename,
+            'Skipped summary: diff exceeds token budget'
+          ] as const
         }
         const [summary] = await leaderBot.chat(summarizePrompt, {})
         return [filename, summary.trim()] as const
@@ -268,8 +281,14 @@ ${hunks.oldHunk}
     .map(([filename, summary]) => `---\n${filename}: ${summary}`)
     .join('\n')
 
-  const [walkthrough] = await leaderBot.chat(prompts.renderSummarize(inputs), {})
-  const [shortSummary] = await leaderBot.chat(prompts.renderSummarizeShort(inputs), {})
+  const [walkthrough] = await leaderBot.chat(
+    prompts.renderSummarize(inputs),
+    {}
+  )
+  const [shortSummary] = await leaderBot.chat(
+    prompts.renderSummarizeShort(inputs),
+    {}
+  )
   inputs.shortSummary = shortSummary
 
   if (!options.disableReleaseNotes) {
@@ -280,7 +299,10 @@ ${hunks.oldHunk}
     if (releaseNotesResponse !== '') {
       const message = `### Summary by NullarAI\n\n${releaseNotesResponse}`
       try {
-        await commenter.updateDescription(context.payload.pull_request.number, message)
+        await commenter.updateDescription(
+          context.payload.pull_request.number,
+          message
+        )
       } catch (e: unknown) {
         warning(`release notes: error from github: ${e}`)
       }
@@ -390,7 +412,9 @@ ${commentChain}
   const [leaderValidationResponse] = await leaderBot.chat(validationPrompt, {})
 
   const acceptedFindings = parseLeaderAcceptedFindings(leaderValidationResponse)
-  const discardedFindings = parseLeaderDiscardedFindings(leaderValidationResponse)
+  const discardedFindings = parseLeaderDiscardedFindings(
+    leaderValidationResponse
+  )
 
   const severityOrder: Array<LeaderAcceptedFinding['severity']> = [
     'critical',
@@ -400,7 +424,9 @@ ${commentChain}
   ]
   const groupedFindings = severityOrder
     .map(severity => {
-      const findings = acceptedFindings.filter(finding => finding.severity === severity)
+      const findings = acceptedFindings.filter(
+        finding => finding.severity === severity
+      )
       if (findings.length === 0) {
         return ''
       }
@@ -416,7 +442,10 @@ ${commentChain}
     .join('\n\n')
 
   const changesTable = summaryResults
-    .map(([filename, summary]) => `| ${filename} | ${summary.replace(/\n/g, ' ')} |`)
+    .map(
+      ([filename, summary]) =>
+        `| ${filename} | ${summary.replace(/\n/g, ' ')} |`
+    )
     .join('\n')
 
   const discardedSection = discardedFindings.length
@@ -426,7 +455,9 @@ ${commentChain}
 ${discardedFindings
   .map(
     discarded =>
-      `- Reason: ${discarded.reason}\n  - Original: ${discarded.original.replace(/\n/g, ' ')}`
+      `- Reason: ${
+        discarded.reason
+      }\n  - Original: ${discarded.original.replace(/\n/g, ' ')}`
   )
   .join('\n')}
 
@@ -732,9 +763,9 @@ function parseLeaderAcceptedFindings(
 
   const accepted: LeaderAcceptedFinding[] = []
   for (const block of blocks) {
-    const severity =
-      (block.match(/\[SEVERITY\]:\s*(critical|major|minor|nit)/i)?.[1] ?? '')
-        .toLowerCase() as LeaderAcceptedFinding['severity'] | ''
+    const severity = (
+      block.match(/\[SEVERITY\]:\s*(critical|major|minor|nit)/i)?.[1] ?? ''
+    ).toLowerCase() as LeaderAcceptedFinding['severity'] | ''
     const file = block.match(/\[FILE\]:\s*(.+)/)?.[1]?.trim() ?? ''
     const lines = block.match(/\[LINES\]:\s*(.+)/)?.[1]?.trim() ?? ''
     const title = block.match(/\[TITLE\]:\s*(.+)/)?.[1]?.trim() ?? ''

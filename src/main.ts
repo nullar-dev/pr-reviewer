@@ -93,7 +93,9 @@ async function run(): Promise<void> {
       process.env.GITHUB_EVENT_NAME === 'pull_request_target'
     ) {
       await codeReview(leaderBot, helperBots, options, prompts)
-    } else if (process.env.GITHUB_EVENT_NAME === 'pull_request_review_comment') {
+    } else if (
+      process.env.GITHUB_EVENT_NAME === 'pull_request_review_comment'
+    ) {
       await handleReviewComment(leaderBot, options, prompts)
     } else {
       warning('Skipped: this action only works on pull_request events')

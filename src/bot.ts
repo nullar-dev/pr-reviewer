@@ -80,6 +80,7 @@ IMPORTANT: Entire response must be in the language with ISO code: ${this.options
             model: this.providerOptions.model,
             messages,
             temperature: this.options.modelTemperature,
+            // eslint-disable-next-line camelcase
             max_tokens: this.providerOptions.tokenLimits.responseTokens
           },
           {
@@ -95,7 +96,8 @@ IMPORTANT: Entire response must be in the language with ISO code: ${this.options
     info(`provider chat response time: ${end - start} ms`)
 
     const responseContent = response.choices[0]?.message?.content
-    const responseText = typeof responseContent === 'string' ? responseContent : ''
+    const responseText =
+      typeof responseContent === 'string' ? responseContent : ''
     if (responseText === '') {
       warning('provider response is empty')
     }

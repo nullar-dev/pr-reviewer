@@ -67,7 +67,10 @@ export class Options {
     openaiConcurrencyLimit = '',
     openaiBaseUrl = ''
   ) {
-    const resolvedLeaderModel = leaderModel || openaiLightModel || 'MiniMax-M2.5'
+    // Note: openaiHeavyModel is deprecated but kept for backward compatibility
+    void openaiHeavyModel
+    const resolvedLeaderModel =
+      leaderModel || openaiLightModel || 'MiniMax-M2.5'
     const resolvedApiBaseUrl =
       leaderApiBaseUrl ||
       apiBaseUrl ||
@@ -91,7 +94,10 @@ export class Options {
     this.leaderModel = resolvedLeaderModel
     this.leaderApiBaseUrl = resolvedApiBaseUrl
     this.leaderApiKeyEnv = leaderApiKeyEnv || 'AI_API_KEY'
-    this.helperConfigs = this.parseHelperConfigs(helperModels, resolvedApiBaseUrl)
+    this.helperConfigs = this.parseHelperConfigs(
+      helperModels,
+      resolvedApiBaseUrl
+    )
     this.modelTemperature = parseFloat(resolvedModelTemperature)
     this.apiRetries = parseInt(resolvedApiRetries)
     this.apiTimeoutMS = parseInt(resolvedApiTimeoutMS)
