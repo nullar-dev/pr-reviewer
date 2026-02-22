@@ -26,6 +26,7 @@ interface Review {
   startLine: number
   endLine: number
   comment: string
+  severity?: string
 }
 
 interface ParsedReviewerFinding extends Review {
@@ -44,6 +45,193 @@ interface LeaderAcceptedFinding {
 interface LeaderDiscardedFinding {
   reason: string
   original: string
+}
+
+/**
+ * Deduplicates findings from multiple bots.
+ * Uses file + line range as primary key, with fuzzy text matching for similarity.
+ * Keeps the most detailed/comprehensive finding for each unique issue.
+ */
+function deduplicateFindings(
+  findings: ParsedReviewerFinding[]
+): ParsedReviewerFinding[] {
+  if (findings.length <= 1) return findings
+
+  // Use a Map for O(1) lookups
+  const seen = new Map<string, ParsedReviewerFinding>()
+
+  // Sort by priority: critical > major > minor > nit
+  // This ensures we keep higher severity when deduplicating
+  const severityPriority: Record<string, number> = {
+    critical: 4,
+    major: 3,
+    minor: 2,
+    nit: 1
+  }
+
+  for (const finding of findings) {
+    // Generate key from filename + line range (allows 1 line tolerance)
+    const lineKey = `${finding.filename}:${finding.startLine}-${finding.endLine}`
+    const lineRange = finding.endLine - finding.startLine
+    const lineKeyVariants = [
+      lineKey,
+      `${finding.filename}:${finding.startLine - 1}-${finding.endLine}`,
+      `${finding.filename}:${finding.startLine}-${finding.endLine + 1}`,
+      `${finding.filename}:${Math.max(1, finding.startLine - 1)}-${finding.endLine + 1}`
+    ]
+
+    let bestMatch: ParsedReviewerFinding | null = null
+    let bestMatchKey: string | null = null
+    let bestScore = -1
+
+    for (const key of lineKeyVariants) {
+      const existing = seen.get(key)
+      if (existing) {
+        // Calculate similarity score
+        const score = calculateSimilarityScore(finding, existing, severityPriority)
+        if (score > bestScore) {
+          bestScore = score
+          bestMatch = existing
+          bestMatchKey = key
+        }
+      }
+    }
+
+    // If similar finding exists, keep the better one
+    if (bestMatch && bestScore > 0.7) {
+      // Compare and keep the more comprehensive one
+      if (isMoreComprehensive(finding, bestMatch, severityPriority)) {
+        seen.set(bestMatchKey!, finding)
+      }
+    } else {
+      // New unique finding - store with primary key
+      seen.set(lineKey, finding)
+    }
+  }
+
+  return Array.from(seen.values())
+}
+
+/**
+ * Calculates similarity score between two findings (0-1).
+ * Higher = more similar.
+ */
+function calculateSimilarityScore(
+  a: ParsedReviewerFinding,
+  b: ParsedReviewerFinding,
+  severityPriority: Record<string, number>
+): number {
+  // Same file + overlapping lines = high similarity
+  if (a.filename !== b.filename) return 0
+
+  const aStart = a.startLine
+  const aEnd = a.endLine
+  const bStart = b.startLine
+  const bEnd = b.endLine
+
+  // Check line overlap
+  const overlap = Math.max(0, Math.min(aEnd, bEnd) - Math.max(aStart, bStart))
+  const union = Math.max(aEnd, bEnd) - Math.min(aStart, bStart)
+  const lineSimilarity = union > 0 ? overlap / union : 0
+
+  if (lineSimilarity < 0.3) return 0 // No significant overlap
+
+  // Normalize comments for comparison
+  const normA = normalizeComment(a.comment)
+  const normB = normalizeComment(b.comment)
+
+  // Check keyword similarity (fast approximation)
+  const keywordsA = extractKeywords(normA)
+  const keywordsB = extractKeywords(normB)
+  const keywordSimilarity = calculateKeywordSimilarity(keywordsA, keywordsB)
+
+  // Combined score (line overlap weighted at 40%, keywords at 60%)
+  return lineSimilarity * 0.4 + keywordSimilarity * 0.6
+}
+
+/**
+ * Normalizes comment for comparison (removes noise).
+ */
+function normalizeComment(comment: string): string {
+  return comment
+    .toLowerCase()
+    .replace(/`[^`]+`/g, '') // Remove code blocks
+    .replace(/[^\w\s]/g, ' ') // Keep only alphanumeric + spaces
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * Extracts key security keywords from comment.
+ */
+function extractKeywords(comment: string): Set<string> {
+  const securityKeywords = [
+    'sql', 'injection', 'xss', 'csrf', 'authentication', 'authorization',
+    'idor', 'authorization', 'access', 'control', 'vulnerability',
+    'hardcoded', 'secret', 'key', 'password', 'token', 'jwt',
+    'eval', 'injection', 'prototype', 'pollution', 'overflow',
+    'timing', 'attack', 'race', 'condition', 'tou', 'toctou',
+    'memory', 'leak', 'dos', 'redos', 'regex', 'precision',
+    'float', 'decimal', 'money', 'currency', 'validation',
+    'sanitize', 'escape', 'bypass', 'exposure', 'disclosure',
+    'random', 'predictable', 'crypt', 'signature', 'verify',
+    'cors', 'header', 'secure', 'cookie', 'session'
+  ]
+
+  const words = comment.toLowerCase().split(/\s+/)
+  const keywords = new Set<string>()
+
+  for (const word of words) {
+    if (securityKeywords.some(k => word.includes(k))) {
+      keywords.add(word)
+    }
+  }
+
+  return keywords
+}
+
+/**
+ * Calculates Jaccard similarity between keyword sets.
+ */
+function calculateKeywordSimilarity(
+  a: Set<string>,
+  b: Set<string>
+): number {
+  if (a.size === 0 || b.size === 0) return 0
+
+  let intersection = 0
+  for (const item of a) {
+    if (b.has(item)) intersection++
+  }
+
+  const union = a.size + b.size - intersection
+  return union > 0 ? intersection / union : 0
+}
+
+/**
+ * Determines if finding A is more comprehensive than finding B.
+ */
+function isMoreComprehensive(
+  a: ParsedReviewerFinding,
+  b: ParsedReviewerFinding,
+  severityPriority: Record<string, number>
+): boolean {
+  // Higher severity wins
+  const aSeverity = severityPriority[a.severity?.toLowerCase() || 'major'] || 3
+  const bSeverity = severityPriority[b.severity?.toLowerCase() || 'major'] || 3
+
+  if (aSeverity !== bSeverity) return aSeverity > bSeverity
+
+  // Longer comment = more details
+  if (Math.abs(a.comment.length - b.comment.length) > 50) {
+    return a.comment.length > b.comment.length
+  }
+
+  // More code examples = better
+  const aCodeBlocks = (a.comment.match(/```/g) || []).length
+  const bCodeBlocks = (b.comment.match(/```/g) || []).length
+
+  return aCodeBlocks > bCodeBlocks
 }
 
 export const codeReview = async (
@@ -409,8 +597,18 @@ ${commentChain}
     )
   )
 
-  const findingsText = allReviewerFindings.length
-    ? allReviewerFindings
+  // Deduplicate findings from multiple bots
+  // This is O(n) with Map lookups - efficient for typical finding counts
+  const uniqueFindings = deduplicateFindings(allReviewerFindings)
+
+  if (uniqueFindings.length < allReviewerFindings.length) {
+    info(
+      `Deduplicated ${allReviewerFindings.length} findings to ${uniqueFindings.length} unique issues`
+    )
+  }
+
+  const findingsText = uniqueFindings.length
+    ? uniqueFindings
         .map(
           finding => `
 [REVIEWER]: ${finding.reviewer}
@@ -422,9 +620,9 @@ ${commentChain}
         .join('\n')
     : 'None'
 
-  // Skip leader validation - use all findings directly
+  // Skip leader validation - use unique findings directly
   // TODO: Add option to enable leader validation in the future
-  const acceptedFindings = allReviewerFindings.map(f => {
+  const acceptedFindings = uniqueFindings.map(f => {
     // Try to extract severity from comment if present
     let severity: 'critical' | 'major' | 'minor' | 'nit' = 'major'
     const lowerComment = f.comment.toLowerCase()
