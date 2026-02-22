@@ -12856,6 +12856,7 @@ class Options {
         const resolvedApiRetries = apiRetries || openaiRetries || '3';
         const resolvedApiTimeoutMS = apiTimeoutMS || openaiTimeoutMS || '120000';
         const resolvedLlmConcurrencyLimit = llmConcurrencyLimit || openaiConcurrencyLimit || '6';
+        const resolvedGithubConcurrencyLimit = githubConcurrencyLimit || '6';
         this.debug = debug;
         this.disableReview = disableReview;
         this.disableReleaseNotes = disableReleaseNotes;
@@ -12872,7 +12873,7 @@ class Options {
         this.apiRetries = parseInt(resolvedApiRetries);
         this.apiTimeoutMS = parseInt(resolvedApiTimeoutMS);
         this.llmConcurrencyLimit = parseInt(resolvedLlmConcurrencyLimit);
-        this.githubConcurrencyLimit = parseInt(githubConcurrencyLimit);
+        this.githubConcurrencyLimit = parseInt(resolvedGithubConcurrencyLimit);
         this.leaderTokenLimits = new TokenLimits(this.leaderModel);
         this.apiBaseUrl = resolvedApiBaseUrl;
         this.language = language;
