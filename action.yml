@@ -273,6 +273,10 @@ inputs:
     required: false
     description: ISO code for the response language
     default: en-US
+  custom_review_instructions:
+    required: false
+    description: 'Custom instructions appended to review prompts for domain-specific guidance'
+    default: ''
   bot_icon:
     required: false
     description: 'The icon for the bot'

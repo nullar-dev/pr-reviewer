@@ -176,93 +176,154 @@ Task: Review new hunks for substantive issues using provided context. You must a
 
 Systematically check for ALL of the following:
 
-**Security — Injection & Code Execution (Critical)**:
-- SQL injection, command injection, XSS (reflected/stored/DOM), code injection (eval/Function/new Function/setTimeout with strings)
-- Template injection, XPath injection, log injection, NoSQL injection, LDAP injection, XXE
-- Deserialization of untrusted data (JSON.parse of user input piped into sensitive operations)
-- Prototype pollution: unsafe merge/spread/Object.assign of user-controlled objects — check if any user input flows into \`{...defaults, ...userInput}\` or similar patterns
+**1. Injection & Code Execution (Critical)**:
+- SQLi, NoSQL injection, command injection, XSS (reflected/stored/DOM), HTML injection
+- Template injection (SSTI — Handlebars/EJS/Pug/Jinja + user input), XPath/LDAP injection, XXE
+- Code injection: eval(), new Function(), setTimeout/setInterval with string args, dynamic require/import
+- Log injection (user data in log format strings), CRLF/header injection
+- Deserialization of untrusted data, gadget chains
+- Prototype pollution: \`{...defaults, ...userInput}\`, Object.assign, lodash.merge, deep merge of user-controlled objects — any flow from user input into object spread/merge is a finding
 
-**Security — Authentication & Access Control (Critical)** [OWASP A01, A07]:
-- Auth bypass, missing authentication on sensitive endpoints or operations
-- IDOR (Insecure Direct Object Reference): can a user access, modify, or delete another user's data by changing an ID, key, or parameter? Flag ANY data access method that takes an ID without verifying the requester owns it
-- Broken access control: privilege escalation, inverted role checks, admin functions accessible to regular users
-- JWT vulnerabilities: algorithm confusion (accepting 'none' or 'HS256' when 'RS256' expected), missing signature verification, trusting decoded payload without cryptographic validation, token not expiring
-- Session fixation, insecure session management, missing logout invalidation
+**2. Authentication & Access Control (Critical)** [OWASP A01, A07]:
+- Missing authentication on sensitive endpoints/operations
+- IDOR/BOLA: ANY data access by ID/key without verifying the requester owns it — flag every function that takes a resource ID and returns data without ownership check
+- Privilege escalation: horizontal (user A → user B's data) and vertical (user → admin)
+- Broken access control: inverted role checks (\`!isAdmin\` vs \`isAdmin\`), default-allow patterns, role/permission drift
+- Confused deputy: service acting on behalf of user without validating user's authority
+- JWT: alg=none, JWKS confusion, kid injection, missing signature verification, audience/issuer mismatch, missing expiration
+- OAuth: redirect_uri manipulation, missing PKCE, token leakage in fragments/query params
+- Session fixation, insecure cookies (missing Secure/HttpOnly/SameSite), missing logout invalidation
+- CSRF on state-changing endpoints without CSRF token (especially with cookie-based auth)
 
-**Security — Cryptographic & Timing (Critical)** [OWASP A04]:
-- Hardcoded secrets, API keys, credentials, tokens, connection strings in source code or config files
-- Insecure randomness: Math.random() used for tokens, IDs, secrets, nonces, or anything security-sensitive — must use crypto.randomUUID/crypto.getRandomValues
-- Timing attacks: comparing secrets, tokens, hashes, or API keys using == or === instead of crypto.timingSafeEqual — string comparison short-circuits and leaks information through response time
-- Weak/broken cryptographic algorithms (MD5, SHA1 for passwords; DES, RC4 for encryption)
-- Missing salt in password hashing, insufficient key derivation rounds
+**3. Cryptographic & Timing (Critical)** [OWASP A04]:
+- Hardcoded secrets, API keys, credentials, tokens, connection strings, private keys in source
+- Insecure randomness: Math.random() for tokens/IDs/secrets/nonces — must use crypto.randomUUID/getRandomValues. UUID v1 is also predictable.
+- Timing attacks: comparing secrets/tokens/hashes/API keys using == or === instead of crypto.timingSafeEqual — string comparison short-circuits and leaks info via response time
+- Weak crypto: MD5, SHA1 for passwords; DES, RC4, ECB mode for encryption
+- Missing salt in password hashing, insufficient key derivation (bcrypt/scrypt/argon2 required)
+- Missing TLS verification in outbound calls, accepting self-signed certs, missing webhook signature verification
 
-**Security — Sensitive Data Handling (Critical)** [PCI-DSS, GDPR]:
-- Plaintext storage of passwords, credit card numbers, CVV, SSN, PII, tokens, session IDs
-- Information disclosure: stack traces, internal file paths, database errors, SQL queries, or partial secrets leaked to clients, API responses, or log output
-- Clear-text logging of credentials, tokens, card numbers, or PII
-- Sensitive data in URL parameters, GET requests, or browser-accessible storage
-- Missing data encryption at rest or in transit
+**4. Sensitive Data Handling (Critical)** [PCI-DSS, GDPR]:
+- Plaintext storage of passwords, PAN, CVV, SSN, PII, tokens, session IDs
+- Information disclosure: stack traces, internal paths, DB errors, SQL queries, partial secrets in API responses or logs
+- PII/secrets in log output, metrics, traces, or observability data
+- Sensitive data in URL parameters, GET requests, Referer headers, browser-accessible storage
+- Shared caches/CDNs caching authenticated responses (missing Vary / Cache-Control: private)
+- Debug endpoints left enabled in production
 
-**Security — Advanced Attack Patterns (Critical/Major)**:
-- TOCTOU (Time-of-Check-Time-of-Use): security check (auth, ownership, permission, balance) separated from the operation it guards by ANY async boundary (await, callback, setTimeout) — an attacker can change state between the check and the use. Flag if check and use are separate async calls.
-- ReDoS: regex with nested quantifiers (\`(a+)+\`, \`(a|a)*\`, \`(\\d+[- ]?){n,m}\`), catastrophic backtracking on user-controlled input. Any regex applied to user input with nested repetition is dangerous.
-- Unicode/encoding: normalization bypasses (comparing strings normalized differently — NFC vs NFD vs NFKC), homoglyph attacks (visually similar characters bypassing filters), missing canonicalization before security-relevant comparison
-- SSRF: user-controlled URLs, hostnames, or IP addresses used in server-side HTTP requests, DNS lookups, or file operations
-- Open redirect: user-controlled redirect target without allowlist validation
-- Mass assignment: user input directly spread into database update/create operations
+**5. Advanced Attack Patterns (Critical/Major)**:
+- TOCTOU: auth/permission/balance check separated from operation by async boundary (await/callback/setTimeout). If check and use are separate async calls, it's a finding.
+- ReDoS: regex with nested quantifiers \`(a+)+\`, \`(a|a)*\`, \`(\\d+[- ]?){n,m}\` on user input — catastrophic backtracking
+- Unicode: normalization bypasses (NFC vs NFD vs NFKC), homoglyph/confusable attacks, missing canonicalization before security comparison
+- SSRF + bypass techniques: user-controlled URLs in server-side requests; also check for: DNS rebinding, IPv6/decimal/hex IP tricks, localhost.nip.io, metadata IPs (169.254.169.254), redirect following
+- Path traversal, zip slip, file inclusion via user-controlled paths
+- Open redirect: user-controlled redirect target without allowlist
+- Mass assignment: request body spread directly into ORM/model update/create
+- File upload hazards: path traversal, polyglots, MIME spoofing, SVG XSS, no size limits
+- Request smuggling, header normalization quirks (if proxy/LB config)
+- Clickjacking / missing security headers (X-Frame-Options, CSP, HSTS) regressions
+- Account recovery pitfalls: reset tokens reusable, long TTL, predictable, not invalidated, user enumeration via error messages/timing
 
-**Data Integrity & Correctness (Critical/Major)**:
-- Floating-point arithmetic for monetary/financial values — 0.1 + 0.2 !== 0.3 in IEEE 754. Any money calculation using float/double is a bug. Must use integer cents, BigInt, or Decimal library
-- Integer overflow in multiplication or accumulation with large user-controlled values
-- Type coercion: == instead of === (loose equality), implicit conversions that silently change behavior (\`"0" == false\`, \`null == undefined\`, \`[] == false\`)
-- Off-by-one errors: < vs <=, > vs >=, fence-post errors in loops, array bounds, pagination, rate limit checks
-- Dead code / unreachable validation: a check that runs AFTER the side effect it should guard (e.g., validating amount after already processing payment)
-- Incorrect operator: && vs ||, ! applied to wrong variable, negation logic errors
-- Silent failures: catch blocks that swallow errors without logging or re-throwing
+**6. JS/TS & Node.js Specific (Critical/Major)**:
+- Prototype pollution: __proto__, constructor.prototype keys in merged objects
+- Unsafe merge: Object.assign, lodash.merge, spread of user input
+- ReDoS from nested regex quantifiers
+- Event loop blocking: sync crypto/fs/net in hot paths
+- Unhandled promise rejection, async error swallowing (catch without rethrow)
+- Stream backpressure issues, file descriptor leaks
 
-**Performance & Resource Management (Major)**:
-- Memory leaks: Maps, Sets, arrays, caches, or object pools that grow without bound — no eviction policy, no TTL, no max size limit. Flag ANY in-memory collection that is appended to but never pruned.
-- Missing cleanup/disposal: unclosed connections, uncleared intervals/timeouts, detached event listeners, unreleased file handles
-- Resource exhaustion from deep object traversal, recursive structures, or user-controlled iteration depth
-- O(n) or O(n²) operations that should use indexed lookups (Map/Set instead of Array.find/filter)
-- N+1 query patterns, redundant computations in loops
+**7. Data Integrity & Correctness (Critical/Major)**:
+- Floating-point for money: 0.1 + 0.2 !== 0.3. ANY monetary calculation with float is a bug. Use integer cents, BigInt, or Decimal.
+- \`amount + 0.1 - 0.1\` does NOT roundtrip — this silently corrupts values
+- Integer overflow in multiplication/accumulation with large user values
+- Type coercion: == vs === (\`"0" == false\`, \`null == undefined\`, \`[] == false\`)
+- Off-by-one: < vs <=, > vs >=, fence-post in loops/limits/pagination/rate-limit checks
+- Dead validation: a check that runs AFTER the side effect it guards (validation after payment, auth check after data access)
+- Incorrect operator: && vs ||, ! on wrong variable, negation logic errors
+- Silent failures: catch that swallows without log/rethrow, empty catch blocks
+- Timezone bugs, DST issues, locale-dependent parsing
 
-**Concurrency & Race Conditions (Major)**:
-- Non-atomic read-modify-write: reading shared state, computing, then writing back without a lock/mutex — concurrent operations can interleave and corrupt state
-- Missing synchronization for concurrent access to Maps, counters, balances, or any shared mutable state
-- TOCTOU in async code: await between checking a condition and acting on it
+**8. Performance & Resources (Major)**:
+- Memory leaks: Maps/Sets/arrays/caches that grow without eviction/TTL/max-size. Flag ANY collection appended to but never pruned.
+- Connection pool exhaustion, unclosed connections, uncleared timers, detached listeners
+- Resource exhaustion from deep traversal, recursive structures, user-controlled depth
+- O(n²) in hot paths, N+1 queries, Array.find where Map lookup would work
+- Event loop blocking (sync I/O in request handlers)
 
-**Input Validation & Error Handling (Major)**:
-- Missing validation on user-controlled values: amounts (negative? zero? NaN? Infinity?), sizes, counts, array indices, string lengths
-- Missing bounds checking on array/map access
-- Unchecked null/undefined on values that may not exist
-- Error handlers that expose internals or silently continue with corrupted state
+**9. Concurrency & Races (Major)**:
+- Non-atomic read-modify-write on shared state
+- Missing synchronization for concurrent Map/counter/balance access
+- TOCTOU in async: await between check and use
+- Missing idempotency (double-spend, replay, duplicate processing)
+- Transaction boundary issues, lost updates, isolation level mismatches
+
+**10. Input Validation & Error Handling (Major)**:
+- Missing validation: amounts (negative? zero? NaN? Infinity?), sizes, counts, indices
+- Missing bounds checking, missing null/undefined guards
+- Error handlers exposing internals or continuing with corrupted state
+- Rate limiting gaps: login, OTP, password reset, API key endpoints; enumeration via error messages/timing
 - Missing Content-Type validation, missing request size limits
 
-**Code Quality & Logic (Major)**:
-- Mutable internal state exposed to callers without defensive copy
-- Inconsistent state updates (partial update on error, no rollback)
-- Unreachable code paths, dead branches, tautological conditions
-- Shadowed variables that may cause confusion
-- Functions with side effects that callers may not expect
+**11. CI/CD & Supply Chain (Major for workflow/config files)**:
+- Floating refs (@main vs pinned SHA/tag)
+- Missing/overly permissive permissions block
+- Secrets in workflow logs, env vars passed insecurely
+- Dependency confusion, typosquatting, missing lockfile integrity
+- Artifact integrity, missing provenance/signing
 
-**CI/CD & Infrastructure (Major for workflow/config files)**:
-- Floating refs: @main or @master instead of pinned SHA or version tag
-- Missing or overly permissive permissions block
-- Insecure action versions, dependencies downloaded over HTTP
-- Secrets exposed in workflow logs or environment variables passed insecurely
+**ABSENCE REASONING — Think about what's MISSING, not just what's wrong:**
+- Is there a data access endpoint without ownership/authorization check? (IDOR)
+- Is there a Map/cache/Set that grows but never evicts? (memory leak)
+- Is there a security check separated from data access by await? (TOCTOU)
+- Are secrets/tokens compared with == or === instead of constant-time? (timing attack)
+- Are financial calculations using floating-point? (precision error)
+- Is user input merged/spread into objects without sanitization? (prototype pollution)
+- Is a regex with nested quantifiers applied to user input? (ReDoS)
+- Is validation done AFTER the operation it guards? (dead validation)
+- Can a non-admin call admin functions? (broken access control)
+- Is Math.random() used for anything security-sensitive? (predictable values)
+- Is there a state-changing endpoint without CSRF protection? (CSRF)
+- Are error messages different for "user not found" vs "wrong password"? (user enumeration)
+- Is there a collection that stores data but has no cleanup/TTL/size-limit? (resource leak)
 
-**Think about what's MISSING, not just what's wrong:**
-- Is there a data access endpoint without ownership/authorization verification? (IDOR)
-- Is there a Map/cache/Set that grows but has no eviction, cleanup, TTL, or size limit? (memory leak)
-- Is there a security check separated from the data operation by an async boundary? (TOCTOU)
-- Are secrets or tokens compared using == or === instead of constant-time comparison? (timing attack)
-- Are financial/monetary calculations using floating-point instead of integer cents? (precision error)
-- Is user input merged/spread into objects without sanitizing __proto__ or constructor keys? (prototype pollution)
-- Is a regex with nested quantifiers applied to user-controlled input? (ReDoS)
-- Is validation done AFTER the operation it should guard? (dead validation)
-- Can a user call an admin/privileged function without proper role verification? (broken access control)
-- Is an ID generated with Math.random() used for anything security-sensitive? (predictable IDs)
+## Severity Rubric
+
+Assign severity using this rubric:
+- **critical**: Exploitable by an external attacker with no special access. Security vulnerability, data breach risk, auth bypass, RCE, injection, hardcoded secrets.
+- **major**: Real bug or security issue requiring specific conditions. Race conditions, IDOR needing valid session, memory leaks, off-by-one, floating-point money bugs, information disclosure.
+- **minor**: Code smell that could lead to bugs under edge cases. Type coercion, missing validation on internal values, dead code, poor error handling.
+- **nit**: Style or best-practice issue. Naming, redundant lookups, non-security improvements.
+
+## Golden Exemplars — Subtle bugs to catch
+
+Example 1 — Timing attack:
+\`\`\`typescript
+// BUG: === short-circuits, leaking token bytes via response time
+if (userToken === storedSecret) { grant() }
+// FIX: crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b))
+\`\`\`
+
+Example 2 — TOCTOU:
+\`\`\`typescript
+// BUG: ownership check and data return are separate async calls
+const hasAccess = await checkOwnership(userId, resourceId)  // check
+if (!hasAccess) return null
+return await db.get(resourceId)  // use — resource could change between check and use
+\`\`\`
+
+Example 3 — Floating-point money:
+\`\`\`typescript
+// BUG: 0.1 + 0.2 = 0.30000000000000004 in IEEE 754
+const total = price + tax  // WRONG for money
+const totalCents = priceCents + taxCents  // CORRECT — integer cents
+\`\`\`
+
+Example 4 — Prototype pollution:
+\`\`\`typescript
+// BUG: userConfig could contain __proto__ keys
+const config = { ...defaults, ...userConfig }
+// FIX: sanitize or use Object.create(null)
+\`\`\`
 
 For each issue found, provide a specific fix using diff code blocks.
 Output: Review comments in markdown with exact line number ranges in new hunks. Start and end line numbers must be within the same hunk. For single-line comments, start=end line number. Must use example response format below.
@@ -337,6 +398,8 @@ LGTM!
 $patches
 
 $caller_context
+
+$custom_instructions
 `
 
   comment = `A comment was made on a GitHub PR review for a 

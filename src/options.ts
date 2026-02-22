@@ -30,6 +30,7 @@ export class Options {
   leaderTokenLimits: TokenLimits
   apiBaseUrl: string
   language: string
+  customInstructions: string
 
   openaiLightModel: string
   openaiHeavyModel: string
@@ -67,7 +68,8 @@ export class Options {
     openaiRetries = '',
     openaiTimeoutMS = '',
     openaiConcurrencyLimit = '',
-    openaiBaseUrl = ''
+    openaiBaseUrl = '',
+    customInstructions = ''
   ) {
     // Note: openaiHeavyModel is deprecated but kept for backward compatibility
     void openaiHeavyModel
@@ -111,6 +113,7 @@ export class Options {
     this.apiBaseUrl = resolvedApiBaseUrl
     this.language = language
     this.contextDepth = this.parseContextDepth(contextDepth)
+    this.customInstructions = customInstructions
 
     this.openaiLightModel = this.leaderModel
     this.openaiHeavyModel = this.leaderModel

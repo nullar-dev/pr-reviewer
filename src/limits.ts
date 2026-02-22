@@ -8,14 +8,14 @@ export class TokenLimits {
     this.knowledgeCutOff = '2024-01-01'
     if (model === 'MiniMax-M2.5') {
       this.maxTokens = 200000
-      this.responseTokens = 4000
+      this.responseTokens = 8000
     } else if (model === 'GLM-4.7' || model === 'glm-4.7') {
       this.maxTokens = 200000
-      this.responseTokens = 4000
+      this.responseTokens = 8000
     } else {
       // Default to MiniMax-M2.5 limits for unknown models
       this.maxTokens = 200000
-      this.responseTokens = 4000
+      this.responseTokens = 8000
     }
     // provide some margin for the request tokens
     this.requestTokens = this.maxTokens - this.responseTokens - 100

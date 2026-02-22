@@ -13,6 +13,7 @@ export class Inputs {
   comment: string
   allFindings: string
   callerContext: string
+  customInstructions: string
 
   constructor(
     systemMessage = '',
@@ -28,7 +29,8 @@ export class Inputs {
     commentChain = 'no other comments on this patch',
     comment = 'no comment provided',
     allFindings = '',
-    callerContext = ''
+    callerContext = '',
+    customInstructions = ''
   ) {
     this.systemMessage = systemMessage
     this.title = title
@@ -44,6 +46,7 @@ export class Inputs {
     this.comment = comment
     this.allFindings = allFindings
     this.callerContext = callerContext
+    this.customInstructions = customInstructions
   }
 
   clone(): Inputs {
@@ -61,7 +64,8 @@ export class Inputs {
       this.commentChain,
       this.comment,
       this.allFindings,
-      this.callerContext
+      this.callerContext,
+      this.customInstructions
     )
   }
 
@@ -110,6 +114,11 @@ export class Inputs {
     }
     if (this.callerContext) {
       content = content.replace('$caller_context', this.callerContext)
+    }
+    if (this.customInstructions) {
+      content = content.replace('$custom_instructions', this.customInstructions)
+    } else {
+      content = content.replace('$custom_instructions', '')
     }
     return content
   }

@@ -39,7 +39,8 @@ export async function run(): Promise<void> {
     getInput('openai_retries'),
     getInput('openai_timeout_ms'),
     getInput('openai_concurrency_limit'),
-    getInput('openai_base_url')
+    getInput('openai_base_url'),
+    getInput('custom_review_instructions')
   )
 
   options.print()

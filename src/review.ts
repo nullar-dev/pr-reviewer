@@ -91,6 +91,7 @@ export const codeReview = async (
   )
 
   inputs.systemMessage = options.systemMessage
+  inputs.customInstructions = options.customInstructions
 
   const existingSummarizeCmt = await commenter.findCommentWithTag(
     SUMMARIZE_TAG,
