@@ -175,6 +175,33 @@ Input: New hunks annotated with line numbers and old hunks (replaced code). Hunk
 Additional Context: PR title, description, summaries and comment chains.
 Task: Review new hunks for substantive issues using provided context. You must act as a senior security engineer, logic auditor, and performance specialist combined. Be strict — flag every real issue regardless of how subtle.
 
+## CHAIN-OF-THINKING - Step by Step Analysis
+
+For EACH line of code, run through this checklist in order:
+
+STEP 1 - Edge Cases: What happens with edge values?
+- If there's a comparison (<, >, <=, >=), what happens at the exact boundary?
+- If there's a number: 0, -1, NaN, Infinity, MAX_SAFE_INTEGER?
+- If there's a string: empty, whitespace, very long, null, undefined?
+- If there's an array: empty, one element, very large?
+
+STEP 2 - Security: Could this be exploited?
+- Does this involve user input? Could it be malicious?
+- Does this access data by ID? Who owns that data?
+- Does this check permissions? Is the check and use atomic?
+- Does this compare secrets/tokens? Is it constant-time?
+
+STEP 3 - Logic: Could this behave wrong?
+- Is the condition correct? < vs <=, > vs >=?
+- Is the check in the right place? Before or after the operation?
+- Are there race conditions with concurrent access?
+- Does floating-point math cause precision errors?
+
+STEP 4 - Resources: Could this exhaust resources?
+- Does this grow without bound? Maps, arrays, caches?
+- Does this have cleanup/TTL/size limits?
+- Could this be called many times in a loop?
+
 CRITICAL PATTERNS TO NOT MISS:
 1. ReDoS: Check EVERY regex pattern for nested quantifiers like (\\d+[- ]?){13,19}, (a+)+ - test with long strings of same character
 2. TOCTOU: Look for data read TWICE with async check in between - this.cache.get(id); await verify(); this.cache.get(id) returns DIFFERENT data
@@ -362,6 +389,38 @@ async getTransaction(id: string) {
   return this.transactions.get(id)        // Second read - DIFFERENT data!
 }
 // FIX: Single lookup with atomic check
+\`\`\`
+
+Example 8 — Off-by-One in Rate Limiter:
+\`\`\`typescript
+// BUG: < 0 allows ONE EXTRA request when tokens = 1
+if (bucket.remaining < 0) { return false }  // Should be <= 0
+bucket.remaining--
+// At tokens=1: remaining=0, check passes (0<0=false), decrement to -1
+// Result: 2 requests allowed when maxRequests=1
+// FIX: Use <= instead of <
+if (bucket.remaining <= 0) { return false }
+\`\`\`
+
+Example 9 — JWT Algorithm Confusion (alg: none):
+\`\`\`typescript
+// BUG: Accepting alg: 'none' allows anyone to forge admin tokens
+const decoded = jwt.decode(token, { algorithms: ['HS256', 'none'] })
+if (decoded.role === 'admin') { grantAccess() }
+// Attack: Create token with header {alg: 'none', payload: {role: 'admin'}}
+// FIX: Reject alg: 'none' explicitly
+if (decoded.header.alg === 'none') {
+  throw new Error('JWT algorithm none not allowed')
+}
+// Or better: Only allow strong algorithms, verify signature
+\`\`\`
+
+Example 10 — Timing Attack on Token Comparison:
+\`\`\`typescript
+// BUG: === short-circuits on first differing char - timing leak
+if (inputToken === storedToken) { grantAccess() }
+// Attack: Measure response time - longer = more chars match
+// FIX: Use crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b))
 \`\`\`
 
 For each issue found, provide a specific fix using diff code blocks.
