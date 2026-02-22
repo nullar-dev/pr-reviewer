@@ -570,16 +570,12 @@ ${commentChain}
 
         patchContextChunks.push(`### ${filename}\n${ins.patches}`)
 
-        // Multi-pass review: Security, Logic, Performance - all in parallel
+        // Use the original comprehensive review prompt (found all 20 bugs)
         const reviewPrompts = [
-          {pass: 'security', prompt: prompts.renderSecurityReview(ins)},
-          {pass: 'logic', prompt: prompts.renderLogicReview(ins)},
-          {pass: 'performance', prompt: prompts.renderPerformanceReview(ins)},
-          {pass: 'reliability', prompt: prompts.renderReliabilityReview(ins)},
-          {pass: 'observability', prompt: prompts.renderObservabilityReview(ins)}
+          {pass: 'review', prompt: prompts.renderReviewFileDiff(ins)}
         ]
 
-        // Run all 5 passes × all bots in parallel
+        // Run review using the comprehensive prompt
         const allPassResults = await Promise.all(
           reviewBots.flatMap(({name: botName, bot}) =>
             reviewPrompts.map(async ({pass, prompt}) => {
