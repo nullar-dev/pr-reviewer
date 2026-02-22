@@ -5,6 +5,7 @@ import {type Bot} from './bot'
 import {
   Commenter,
   COMMENT_REPLY_TAG,
+  IN_PROGRESS_START_TAG,
   RAW_SUMMARY_END_TAG,
   RAW_SUMMARY_START_TAG,
   SHORT_SUMMARY_END_TAG,
@@ -81,6 +82,13 @@ export const codeReview = async (
     info('Skipped: description contains ignore keyword')
     return
   }
+
+  // Post in-progress status message
+  await commenter.comment(
+    commenter.addInProgressStatus('', '🔍 Analyzing pull request changes...'),
+    SUMMARIZE_TAG,
+    'replace'
+  )
 
   inputs.systemMessage = options.systemMessage
 
@@ -502,6 +510,8 @@ ${SHORT_SUMMARY_END_TAG}
     existingCommitIdsBlock,
     commits[commits.length - 1].sha
   )}`
+
+
 
   await commenter.comment(`${summarizeComment}`, SUMMARIZE_TAG, 'replace')
 }
