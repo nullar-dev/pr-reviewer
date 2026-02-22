@@ -684,10 +684,10 @@ ${commentChain}
     'nit'
   ]
   const severityEmoji: Record<string, string> = {
-    critical: '🔴 Critical',
-    major: '🟠 Major',
-    minor: '🟡 Minor',
-    nit: '🔵 Nit'
+    critical: '🔴 CRITICAL',
+    major: '🟠 MAJOR',
+    minor: '🟡 MINOR',
+    nit: '🔵 NIT'
   }
 
   // Generate AI prompts for all findings
@@ -713,8 +713,7 @@ ${commentChain}
             `**${finding.file}** (${finding.lines}): ${finding.title}\nConfidence: ${finding.confidence || 80}%\n\n${finding.details}\n`
         )
         .join('\n---\n')
-      return `<details>
-<summary>${severityEmoji[severity]} (${findings.length})</summary>\n\n${renderedFindings}\n</details>`
+      return `## ${severityEmoji[severity]} (${findings.length})\n\n${renderedFindings}`
     })
     .filter(section => section !== '')
     .join('\n\n')
