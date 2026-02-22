@@ -438,6 +438,22 @@ ${commentChain}
     'minor',
     'nit'
   ]
+  const severityEmoji: Record<string, string> = {
+    critical: '🔴 Critical',
+    major: '🟠 Major',
+    minor: '🟡 Minor',
+    nit: '🔵 Nit'
+  }
+
+  // Generate AI prompts for all findings
+  const generateAiPrompt = (findings: LeaderAcceptedFinding[]): string => {
+    if (findings.length === 0) return ''
+    return `Verify each finding against the current code and fix the issues.\n\n` +
+      findings.map(f => 
+        `In \`@${f.file}\` around lines ${f.lines}: ${f.title}. ${f.details}`
+      ).join('\n\n')
+  }
+
   const groupedFindings = severityOrder
     .map(severity => {
       const findings = acceptedFindings.filter(
@@ -449,13 +465,17 @@ ${commentChain}
       const renderedFindings = findings
         .map(
           finding =>
-            `- [${finding.file}:${finding.lines}] **${finding.title}** - ${finding.details}`
+            `**${finding.file}** (${finding.lines}): ${finding.title}\n\n${finding.details}\n`
         )
-        .join('\n')
-      return `#### ${capitalize(severity)}\n${renderedFindings}`
+        .join('\n---\n')
+      return `<details>
+<summary>${severityEmoji[severity]} (${findings.length})</summary>\n\n${renderedFindings}\n</details>`
     })
     .filter(section => section !== '')
     .join('\n\n')
+
+  // Generate AI prompts for all accepted findings
+  const allFindingsPrompt = generateAiPrompt(acceptedFindings)
 
   const changesTable = summaryResults
     .map(
@@ -497,6 +517,16 @@ ${changesTable}
 ${groupedFindings || 'No actionable findings.'}
 
 ${discardedSection}
+
+---
+
+**🤖 Prompt for AI Agents**
+\n\n<details>
+<summary>Click to copy fix prompt</summary>
+
+\`\`\`\n${allFindingsPrompt}\n\`\`\`
+
+</details>
 
 ${RAW_SUMMARY_START_TAG}
 ${inputs.rawSummary}
