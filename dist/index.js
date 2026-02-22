@@ -1,4 +1,4 @@
-/******/ (() => { // webpackBootstrap
+require('./sourcemap-register.js');/******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
 /***/ 308:
@@ -15001,7 +15001,11 @@ function parseReview(response, patches, debug = false) {
     const reviews = [];
     response = sanitizeResponse(response.trim());
     const lines = response.split('\n');
+    // Support both formats:
+    // 1. Old: "22-22:" at end of line
+    // 2. New: "### filename:LINES" at start of line (e.g., "### payment-service.ts:52" or "### file.ts:10-20")
     const lineNumberRangeRegex = /(?:^|\s)(\d+)-(\d+):\s*$/;
+    const newFormatRegex = /^###\s+[^:]+:(\d+)(?:-(\d+))?/;
     const commentSeparator = '---';
     let currentStartLine = null;
     let currentEndLine = null;
@@ -15051,8 +15055,20 @@ function parseReview(response, patches, debug = false) {
         }
     }
     for (const line of lines) {
+        // Check for old format: "22-22:" at end of line
         const lineNumberRangeMatch = line.match(lineNumberRangeRegex);
-        if (lineNumberRangeMatch != null) {
+        // Check for new format: "### filename:LINES" at start of line
+        const newFormatMatch = line.match(newFormatRegex);
+        if (newFormatMatch != null) {
+            // New format: ### filename:start-end or ### filename:start
+            storeReview();
+            currentStartLine = parseInt(newFormatMatch[1], 10);
+            currentEndLine = newFormatMatch[2] ? parseInt(newFormatMatch[2], 10) : currentStartLine;
+            currentComment = '';
+            continue;
+        }
+        else if (lineNumberRangeMatch != null) {
+            // Old format: "22-25:" at end of line
             storeReview();
             currentStartLine = parseInt(lineNumberRangeMatch[1], 10);
             currentEndLine = parseInt(lineNumberRangeMatch[2], 10);
@@ -48137,3 +48153,4 @@ module.exports = JSON.parse('[[[0,44],"disallowed_STD3_valid"],[[45,46],"valid"]
 /******/ 	
 /******/ })()
 ;
+//# sourceMappingURL=index.js.map
