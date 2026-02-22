@@ -441,6 +441,227 @@ $caller_context
 $custom_instructions
 `
 
+  // Specialized multi-pass review prompts
+  securityReview = `## GitHub PR Title
+
+\`$title\`
+
+## Description
+
+\`\`\`
+$description
+\`\`\`
+
+## Summary of changes
+
+\`\`\`
+$short_summary
+\`\`\`
+
+## SECURITY REVIEW - Deep Focus
+
+You are a senior security engineer. Review this code for security vulnerabilities ONLY.
+
+CRITICAL PATTERNS TO NOT MISS:
+1. ReDoS: Nested quantifiers like (\\d+[- ]?){13,19} - test with long strings
+2. TOCTOU: Data fetched twice with async check in between
+3. Unicode Bypass: .normalize() without prior validation
+4. DOUBLE-FETCH: cache.get(id); await verify(); cache.get(id) - DIFFERENT data!
+
+Focus on these categories:
+
+**1. Injection & Code Execution**:
+- SQLi, NoSQL, command injection, XSS, eval(), template injection, prototype pollution
+- Deserialization of untrusted data
+
+**2. Authentication & Access Control**:
+- IDOR: Any data access by ID without ownership check
+- JWT: alg:none, missing signature verification, trusting payload
+- Missing authentication on sensitive endpoints
+
+**3. Cryptographic & Timing**:
+- Hardcoded secrets, API keys in source
+- Timing attacks: ==/=== for token comparison
+- Weak crypto: MD5, SHA1 for passwords
+
+**4. Sensitive Data Handling**:
+- Plaintext storage of passwords, card numbers, PII
+- Information disclosure via errors/logs
+
+**5. Advanced Attacks**:
+- SSRF: User-controlled URLs in server requests
+- Path traversal, open redirect
+- Mass assignment
+
+**6. JS/TS Specific**:
+- Prototype pollution via object spread
+- Unsafe eval/Function
+
+ABSENCE REASONING - What's MISSING:
+- Data access without ownership check? (IDOR)
+- Secrets compared with == instead of constant-time?
+- User input merged into objects without sanitization?
+- User-controlled URL being fetched? (SSRF)
+
+## Severity
+- critical: Exploitable by external attacker
+- major: Real bug requiring specific conditions
+- minor: Code smell
+- nit: Style issue
+
+Output format:
+### FILENAME:LINES
+SEVERITY: critical|major|minor|nit
+CONFIDENCE: 0-100%
+TITLE: short title
+DETAILS: specific rationale and fix
+---
+
+## Changes made to \`$filename\` for your review
+
+$patches
+
+$caller_context
+`
+
+  logicReview = `## GitHub PR Title
+
+\`$title\`
+
+## Description
+
+\`\`\`
+$description
+\`\`\`
+
+## Summary of changes
+
+\`\`\`
+$short_summary
+\`\`\`
+
+## LOGIC REVIEW - Deep Focus
+
+You are a senior software engineer. Review this code for logic correctness ONLY.
+
+Focus on these categories:
+
+**1. Data Integrity & Correctness**:
+- Floating-point for money: 0.1 + 0.2 !== 0.3 - use integer cents
+- Integer overflow in calculations
+- Type coercion: == vs ===
+- Off-by-one: < vs <=
+- Dead validation: check AFTER processing (not before)
+- Incorrect operator: && vs ||
+
+**2. Input Validation & Error Handling**:
+- Missing validation: amounts, sizes, counts
+- Missing null/undefined guards
+- Error handlers exposing internals
+- Silent failures: catch without rethrow
+
+**3. Business Logic**:
+- Edge cases not handled
+- Wrong conditions in if/else
+- Incorrect return values
+- Logic inversions
+
+ABSENCE REASONING - What's MISSING:
+- Floating-point used for financial calculations?
+- Validation happens AFTER the operation it guards?
+- Off-by-one in boundary checks?
+- Type coercion bugs from ==?
+
+## Severity
+- critical: Data corruption possible
+- major: Logic error affecting behavior
+- minor: Code smell
+- nit: Style issue
+
+Output format:
+### FILENAME:LINES
+SEVERITY: critical|major|minor|nit
+CONFIDENCE: 0-100%
+TITLE: short title
+DETAILS: specific rationale and fix
+---
+
+## Changes made to \`$filename\` for your review
+
+$patches
+
+$caller_context
+`
+
+  performanceReview = `## GitHub PR Title
+
+\`$title\`
+
+## Description
+
+\`\`\`
+$description
+\`\`\`
+
+## Summary of changes
+
+\`\`\`
+$short_summary
+\`\`\`
+
+## PERFORMANCE REVIEW - Deep Focus
+
+You are a senior performance engineer. Review this code for performance issues ONLY.
+
+Focus on these categories:
+
+**1. Performance & Resources**:
+- Memory leaks: Maps/Sets/arrays that grow without eviction/TTL/max-size
+- Connection pool exhaustion
+- Resource leaks: unclosed connections, timers, listeners
+- O(n²) in hot paths, N+1 queries
+- Event loop blocking: sync I/O in request handlers
+
+**2. Concurrency & Races**:
+- Non-atomic read-modify-write
+- Missing synchronization for concurrent Map/counter access
+- Race conditions between async operations
+
+**3. Algorithm Complexity**:
+- Inefficient algorithms
+- Unnecessary iterations
+- Missing caching
+
+**4. CI/CD & Supply Chain** (for config files):
+- Floating refs (@main vs pinned SHA)
+- Secrets in workflow logs
+
+ABSENCE REASONING - What's MISSING:
+- Collections that grow but never evict? (memory leak)
+- Concurrent access without locks?
+- Heavy computation in hot paths?
+
+## Severity
+- critical: Service crash possible
+- major: Performance degradation
+- minor: Inefficiency
+- nit: Style issue
+
+Output format:
+### FILENAME:LINES
+SEVERITY: critical|major|minor|nit
+CONFIDENCE: 0-100%
+TITLE: short title
+DETAILS: specific rationale and fix
+---
+
+## Changes made to \`$filename\` for your review
+
+$patches
+
+$caller_context
+`
+
   comment = `A comment was made on a GitHub PR review for a 
 diff hunk on a file - \`$filename\`. I would like you to follow 
 the instructions in that comment. 
@@ -543,6 +764,18 @@ $comment
 
   renderReviewFileDiff(inputs: Inputs): string {
     return inputs.render(this.reviewFileDiff)
+  }
+
+  renderSecurityReview(inputs: Inputs): string {
+    return inputs.render(this.securityReview)
+  }
+
+  renderLogicReview(inputs: Inputs): string {
+    return inputs.render(this.logicReview)
+  }
+
+  renderPerformanceReview(inputs: Inputs): string {
+    return inputs.render(this.performanceReview)
   }
 
   renderLeaderValidation(inputs: Inputs): string {

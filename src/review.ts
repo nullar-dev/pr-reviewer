@@ -27,6 +27,7 @@ interface Review {
   endLine: number
   comment: string
   severity?: string
+  confidence?: number
 }
 
 interface ParsedReviewerFinding extends Review {
@@ -36,6 +37,7 @@ interface ParsedReviewerFinding extends Review {
 
 interface LeaderAcceptedFinding {
   severity: 'critical' | 'major' | 'minor' | 'nit'
+  confidence: number
   file: string
   lines: string
   title: string
@@ -568,16 +570,26 @@ ${commentChain}
 
         patchContextChunks.push(`### ${filename}\n${ins.patches}`)
 
-        const prompt = prompts.renderReviewFileDiff(ins)
-        const botResponses = await Promise.all(
-          reviewBots.map(async ({name, bot}) => {
-            const [response] = await bot.chat(prompt, {})
-            return {name, response}
-          })
+        // Multi-pass review: Security, Logic, Performance - all in parallel
+        const reviewPrompts = [
+          {pass: 'security', prompt: prompts.renderSecurityReview(ins)},
+          {pass: 'logic', prompt: prompts.renderLogicReview(ins)},
+          {pass: 'performance', prompt: prompts.renderPerformanceReview(ins)}
+        ]
+
+        // Run all 3 passes × all bots in parallel
+        const allPassResults = await Promise.all(
+          reviewBots.flatMap(({name: botName, bot}) =>
+            reviewPrompts.map(async ({pass, prompt}) => {
+              const [response] = await bot.chat(prompt, {})
+              return {botName, pass, response, patches}
+            })
+          )
         )
 
-        for (const {name, response} of botResponses) {
-          const parsed = parseReview(response, patches, options.debug)
+        // Process all findings
+        for (const {botName, pass, response, patches: findPatches} of allPassResults) {
+          const parsed = parseReview(response, findPatches, options.debug)
           for (const finding of parsed) {
             if (
               !options.reviewCommentLGTM &&
@@ -588,7 +600,7 @@ ${commentChain}
             }
             allReviewerFindings.push({
               ...finding,
-              reviewer: name,
+              reviewer: `${botName}:${pass}`,
               filename
             })
           }
@@ -633,8 +645,17 @@ ${commentChain}
     } else if (lowerComment.includes('nit') || lowerComment.includes('style')) {
       severity = 'nit'
     }
+
+    // Extract confidence score from comment (format: "CONFIDENCE: XX%")
+    let confidence = 80 // Default confidence
+    const confidenceMatch = f.comment.match(/CONFIDENCE:\s*(\d+)%/i)
+    if (confidenceMatch) {
+      confidence = parseInt(confidenceMatch[1], 10)
+    }
+
     return {
       severity,
+      confidence,
       file: f.filename,
       lines: `${f.startLine}-${f.endLine}`,
       title: 'Issue found by reviewer',
@@ -677,7 +698,7 @@ ${commentChain}
       const renderedFindings = findings
         .map(
           finding =>
-            `**${finding.file}** (${finding.lines}): ${finding.title}\n\n${finding.details}\n`
+            `**${finding.file}** (${finding.lines}): ${finding.title}\nConfidence: ${finding.confidence || 80}%\n\n${finding.details}\n`
         )
         .join('\n---\n')
       return `<details>
@@ -1044,7 +1065,11 @@ export function parseLeaderAcceptedFindings(
       title !== '' &&
       details !== ''
     ) {
-      accepted.push({severity, file, lines, title, details})
+      // Extract confidence if present
+      const confidenceStr = block.match(/CONFIDENCE:\s*(\d+)%/i)?.[1] ?? '80'
+      const confidence = parseInt(confidenceStr, 10)
+
+      accepted.push({severity, confidence, file, lines, title, details})
     }
   }
 
