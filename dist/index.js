@@ -14804,13 +14804,25 @@ ${commentChain}
         if (confidenceMatch) {
             confidence = parseInt(confidenceMatch[1], 10);
         }
+        // Extract title from comment (format: "TITLE: ..." or "### FILENAME:LINES\nSEVERITY: ...\nTITLE: ...")
+        let title = 'Issue found by reviewer';
+        const titleMatch = f.comment.match(/TITLE:\s*(.+)/i);
+        if (titleMatch) {
+            title = titleMatch[1].trim().substring(0, 100);
+        }
+        // Extract details - everything after DETAILS:
+        let details = f.comment.trim().substring(0, 500);
+        const detailsMatch = f.comment.match(/DETAILS:\s*([\s\S]*)/i);
+        if (detailsMatch) {
+            details = detailsMatch[1].trim().substring(0, 500);
+        }
         return {
             severity,
             confidence,
+            title,
+            details,
             file: f.filename,
             lines: `${f.startLine}-${f.endLine}`,
-            title: 'Issue found by reviewer',
-            details: f.comment.trim().substring(0, 500)
         };
     });
     const discardedFindings = [];
