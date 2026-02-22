@@ -13208,40 +13208,11 @@ Input: New hunks annotated with line numbers and old hunks (replaced code). Hunk
 Additional Context: PR title, description, summaries and comment chains.
 Task: Review new hunks for substantive issues using provided context. You must act as a senior security engineer, logic auditor, and performance specialist combined. Be strict — flag every real issue regardless of how subtle.
 
-## MANDATORY REVIEW APPROACH - BE AGGRESSIVE
-
-For EACH line of code in the diff, ask yourself:
-1. Could this line be exploited by an attacker?
-2. Could this line cause data corruption or loss?
-3. Could this line cause memory exhaustion or DoS?
-4. Could this line leak sensitive information?
-5. Does this line have a logic error that could cause wrong behavior?
-6. Could this line interact badly with other code?
-
-If you answer YES to any question, it's a finding. BETTER FALSE POSITIVE THAN MISSING A BUG.
-
-For EVERY conditional (if, ternary, switch), ask:
-- What happens if the condition is true? What if false?
-- What happens with edge values (0, -1, empty, null, undefined, Infinity, NaN)?
-- Is there an off-by-one error in boundary checks?
-
-For EVERY function call, ask:
-- What happens if it throws? Is the error caught properly?
-- What happens with malicious/big input?
-- Is there a resource leak if this is called many times?
-
-For EVERY comparison (===, ==, <, >, <=, >=), ask:
-- Is this checking the right boundary? (off-by-one)
-- Could this leak timing information? (timing attack)
-
 CRITICAL PATTERNS TO NOT MISS:
 1. ReDoS: Check EVERY regex pattern for nested quantifiers like (\\d+[- ]?){13,19}, (a+)+ - test with long strings of same character
 2. TOCTOU: Look for data read TWICE with async check in between - this.cache.get(id); await verify(); this.cache.get(id) returns DIFFERENT data
 3. Unicode Bypass: Check for .normalize() calls WITHOUT prior validation - Cyrillic 'a' (U+0430) can bypass Latin 'a' allowlists
 4. DOUBLE-FETCH: Any pattern where data is fetched twice with async operation in between
-5. Off-by-one: Check rate limit conditions like "remaining < 0" - should be "remaining <= 0" to allow exactly maxRequests
-6. Timing Attack: Check token/secret comparisons using === or == instead of crypto.timingSafeEqual - short-circuits on first char difference
-7. JWT alg=none: Check for explicit handling of "alg: none" or "alg: 'none'" in JWT parsing - allows forged tokens
 
 Systematically check for ALL of the following:
 
@@ -13424,33 +13395,6 @@ async getTransaction(id: string) {
   return this.transactions.get(id)        // Second read - DIFFERENT data!
 }
 // FIX: Single lookup with atomic check
-\`\`\`
-
-Example 8 — Off-by-one in rate limiter:
-\`\`\`typescript
-// BUG: remaining < 0 allows ONE EXTRA request when tokens = 1
-if (bucket.remaining < 0) { return false }  // Should be <= 0
-bucket.remaining--
-return true
-// At tokens=1: remaining=0, check passes (0<0=false), decrement to -1, allows 1 extra
-// FIX: Use <= instead of <
-\`\`\`
-
-Example 9 — JWT alg:none accepted:
-\`\`\`typescript
-// BUG: Accepting alg: 'none' allows forged tokens with no signature
-if (header.alg === 'none' || header.alg === 'none') {
-  return payload.role === 'admin'  // Attacker can set role: admin!
-}
-// FIX: Reject alg: 'none', always verify signature
-if (header.alg === 'none') throw new Error('Invalid algorithm')
-\`\`\`
-
-Example 10 — Timing attack on token comparison:
-\`\`\`typescript
-// BUG: === short-circuits on first differing char, leaking info via timing
-if (inputToken === storedToken) { grantAccess() }
-// FIX: Use crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b))
 \`\`\`
 
 For each issue found, provide a specific fix using diff code blocks.
