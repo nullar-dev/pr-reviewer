@@ -10806,7 +10806,8 @@ class Inputs {
     commentChain;
     comment;
     allFindings;
-    constructor(systemMessage = '', title = 'no title provided', description = 'no description provided', rawSummary = '', shortSummary = '', filename = '', fileContent = 'file contents cannot be provided', fileDiff = 'file diff cannot be provided', patches = '', diff = 'no diff', commentChain = 'no other comments on this patch', comment = 'no comment provided', allFindings = '') {
+    callerContext;
+    constructor(systemMessage = '', title = 'no title provided', description = 'no description provided', rawSummary = '', shortSummary = '', filename = '', fileContent = 'file contents cannot be provided', fileDiff = 'file diff cannot be provided', patches = '', diff = 'no diff', commentChain = 'no other comments on this patch', comment = 'no comment provided', allFindings = '', callerContext = '') {
         this.systemMessage = systemMessage;
         this.title = title;
         this.description = description;
@@ -10820,9 +10821,10 @@ class Inputs {
         this.commentChain = commentChain;
         this.comment = comment;
         this.allFindings = allFindings;
+        this.callerContext = callerContext;
     }
     clone() {
-        return new Inputs(this.systemMessage, this.title, this.description, this.rawSummary, this.shortSummary, this.filename, this.fileContent, this.fileDiff, this.patches, this.diff, this.commentChain, this.comment, this.allFindings);
+        return new Inputs(this.systemMessage, this.title, this.description, this.rawSummary, this.shortSummary, this.filename, this.fileContent, this.fileDiff, this.patches, this.diff, this.commentChain, this.comment, this.allFindings, this.callerContext);
     }
     render(content) {
         if (!content) {
@@ -10867,6 +10869,9 @@ class Inputs {
         if (this.allFindings) {
             content = content.replace('$all_findings', this.allFindings);
         }
+        if (this.callerContext) {
+            content = content.replace('$caller_context', this.callerContext);
+        }
         return content;
     }
 }
@@ -10880,6 +10885,9 @@ class Inputs {
 "use strict";
 __nccwpck_require__.a(module, async (__webpack_handle_async_dependencies__, __webpack_async_result__) => { try {
 __nccwpck_require__.r(__webpack_exports__);
+/* harmony export */ __nccwpck_require__.d(__webpack_exports__, {
+/* harmony export */   "run": () => (/* binding */ run)
+/* harmony export */ });
 /* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(2186);
 /* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__nccwpck_require__.n(_actions_core__WEBPACK_IMPORTED_MODULE_0__);
 /* harmony import */ var _bot__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(308);
@@ -10917,7 +10925,7 @@ async function run() {
     try {
         if (process.env.GITHUB_EVENT_NAME === 'pull_request' ||
             process.env.GITHUB_EVENT_NAME === 'pull_request_target') {
-            await (0,_review__WEBPACK_IMPORTED_MODULE_3__/* .codeReview */ .z)(leaderBot, helperBots, options, prompts);
+            await (0,_review__WEBPACK_IMPORTED_MODULE_3__/* .codeReview */ .zm)(leaderBot, helperBots, options, prompts);
         }
         else if (process.env.GITHUB_EVENT_NAME === 'pull_request_review_comment') {
             await (0,_review_comment__WEBPACK_IMPORTED_MODULE_4__/* .handleReviewComment */ .V)(leaderBot, options, prompts);
@@ -12779,8 +12787,8 @@ class TokenLimits {
     requestTokens;
     responseTokens;
     knowledgeCutOff;
-    constructor(model = 'gpt-3.5-turbo') {
-        this.knowledgeCutOff = '2021-09-01';
+    constructor(model = 'MiniMax-M2.5') {
+        this.knowledgeCutOff = '2024-01-01';
         if (model === 'MiniMax-M2.5') {
             this.maxTokens = 200000;
             this.responseTokens = 4000;
@@ -12789,29 +12797,10 @@ class TokenLimits {
             this.maxTokens = 200000;
             this.responseTokens = 4000;
         }
-        else if (model === 'gpt-4o' || model === 'gpt-4-turbo') {
-            this.maxTokens = 128000;
-            this.responseTokens = 4000;
-        }
-        else if (model === 'gpt-4o-mini') {
-            this.maxTokens = 32000;
-            this.responseTokens = 4000;
-        }
-        else if (model === 'gpt-4-32k') {
-            this.maxTokens = 32600;
-            this.responseTokens = 4000;
-        }
-        else if (model === 'gpt-3.5-turbo-16k') {
-            this.maxTokens = 16300;
-            this.responseTokens = 3000;
-        }
-        else if (model === 'gpt-4') {
-            this.maxTokens = 8000;
-            this.responseTokens = 2000;
-        }
         else {
-            this.maxTokens = 4000;
-            this.responseTokens = 1000;
+            // Default to MiniMax-M2.5 limits for unknown models
+            this.maxTokens = 200000;
+            this.responseTokens = 4000;
         }
         // provide some margin for the request tokens
         this.requestTokens = this.maxTokens - this.responseTokens - 100;
@@ -12838,6 +12827,7 @@ class Options {
     leaderApiBaseUrl;
     leaderApiKeyEnv;
     helperConfigs;
+    contextDepth;
     modelTemperature;
     apiRetries;
     apiTimeoutMS;
@@ -12854,7 +12844,7 @@ class Options {
     openaiConcurrencyLimit;
     lightTokenLimits;
     heavyTokenLimits;
-    constructor(debug, disableReview, disableReleaseNotes, maxFiles = '0', reviewSimpleChanges = false, reviewCommentLGTM = false, pathFilters = null, systemMessage = '', leaderModel = 'MiniMax-M2.5', leaderApiBaseUrl = '', leaderApiKeyEnv = 'AI_API_KEY', helperModels = '', modelTemperature = '0.0', apiRetries = '3', apiTimeoutMS = '120000', llmConcurrencyLimit = '6', githubConcurrencyLimit = '6', apiBaseUrl = '', language = 'en-US', openaiLightModel = '', openaiHeavyModel = '', openaiModelTemperature = '', openaiRetries = '', openaiTimeoutMS = '', openaiConcurrencyLimit = '', openaiBaseUrl = '') {
+    constructor(debug, disableReview, disableReleaseNotes, maxFiles = '0', reviewSimpleChanges = false, reviewCommentLGTM = false, pathFilters = null, systemMessage = '', leaderModel = 'MiniMax-M2.5', leaderApiBaseUrl = '', leaderApiKeyEnv = 'AI_API_KEY', helperModels = '', contextDepth = 'medium', modelTemperature = '0.0', apiRetries = '3', apiTimeoutMS = '120000', llmConcurrencyLimit = '6', githubConcurrencyLimit = '6', apiBaseUrl = '', language = 'en-US', openaiLightModel = '', openaiHeavyModel = '', openaiModelTemperature = '', openaiRetries = '', openaiTimeoutMS = '', openaiConcurrencyLimit = '', openaiBaseUrl = '') {
         // Note: openaiHeavyModel is deprecated but kept for backward compatibility
         void openaiHeavyModel;
         const resolvedLeaderModel = leaderModel || openaiLightModel || 'MiniMax-M2.5';
@@ -12886,6 +12876,7 @@ class Options {
         this.leaderTokenLimits = new TokenLimits(this.leaderModel);
         this.apiBaseUrl = resolvedApiBaseUrl;
         this.language = language;
+        this.contextDepth = this.parseContextDepth(contextDepth);
         this.openaiLightModel = this.leaderModel;
         this.openaiHeavyModel = this.leaderModel;
         this.openaiModelTemperature = this.modelTemperature;
@@ -12961,6 +12952,14 @@ class Options {
             (0,core.warning)(`Failed to parse helper_models JSON: ${e}`);
             return [];
         }
+    }
+    parseContextDepth(value) {
+        const normalized = value?.trim()?.toLowerCase();
+        if (normalized === 'shallow' || normalized === 'deep') {
+            return normalized;
+        }
+        // Default to 'medium' for any invalid or missing value
+        return 'medium';
     }
 }
 class PathFilter {
@@ -13178,7 +13177,17 @@ $short_summary
 
 Input: New hunks annotated with line numbers and old hunks (replaced code). Hunks represent incomplete code fragments.
 Additional Context: PR title, description, summaries and comment chains.
-Task: Review new hunks for substantive issues using provided context and respond with comments if necessary.
+Task: Review new hunks for substantive issues using provided context. Look for:
+
+**Security (Critical)**: Hardcoded secrets, SQL injection, XSS, auth bypass, insecure token generation (Math.random), missing input validation, password not stored properly.
+
+**Performance & Optimization (Major)**: Token/map memory leaks, missing cleanup, O(n) lookups that could use indexes, unbounded growth, inefficient loops.
+
+**Code Quality (Major)**: Mutable fields that should be immutable, unprotected updates to internal state, missing null checks.
+
+**CI/CD (Major for workflow files)**: Floating refs (@main instead of @tag), missing permissions, insecure action versions.
+
+For each issue found, provide a specific fix using diff code blocks.
 Output: Review comments in markdown with exact line number ranges in new hunks. Start and end line numbers must be within the same hunk. For single-line comments, start=end line number. Must use example response format below.
 Use fenced code blocks using the relevant language identifier where applicable.
 Don't annotate code snippets with line numbers. Format and indent code correctly.
@@ -13249,6 +13258,8 @@ LGTM!
 ## Changes made to \`$filename\` for your review
 
 $patches
+
+$caller_context
 `;
     comment = `A comment was made on a GitHub PR review for a 
 diff hunk on a file - \`$filename\`. I would like you to follow 
@@ -13505,8 +13516,10 @@ const handleReviewComment = async (leaderBot, options, prompts) => {
 
 // EXPORTS
 __nccwpck_require__.d(__webpack_exports__, {
-  "z": () => (/* binding */ codeReview)
+  "zm": () => (/* binding */ codeReview)
 });
+
+// UNUSED EXPORTS: capitalize, extractDefinitions, parseLeaderAcceptedFindings, parseLeaderDiscardedFindings, parsePatch, parseReview, patchStartEndLine, sanitizeCodeBlock, splitPatch
 
 // EXTERNAL MODULE: ./node_modules/@actions/core/lib/core.js
 var core = __nccwpck_require__(2186);
@@ -13692,6 +13705,8 @@ const codeReview = async (leaderBot, helperBots, options, prompts) => {
         (0,core.info)('Skipped: description contains ignore keyword');
         return;
     }
+    // Post in-progress status message
+    await commenter.comment(commenter.addInProgressStatus('', '🔍 Analyzing pull request changes...'), lib_commenter/* SUMMARIZE_TAG */.Rp, 'replace');
     inputs.systemMessage = options.systemMessage;
     const existingSummarizeCmt = await commenter.findCommentWithTag(lib_commenter/* SUMMARIZE_TAG */.Rp, context.payload.pull_request.number);
     let existingCommitIdsBlock = '';
@@ -13810,6 +13825,9 @@ ${hunks.oldHunk}
         (0,core.error)('Skipped: no files to review');
         return;
     }
+    // Gather caller context based on context depth setting
+    const callerContext = await gatherCallerContext(filesAndChanges, options.contextDepth, context.payload.pull_request.base.sha);
+    inputs.callerContext = callerContext;
     const limitedFiles = options.maxFiles > 0
         ? filesAndChanges.slice(0, options.maxFiles)
         : filesAndChanges;
@@ -13928,6 +13946,19 @@ ${commentChain}
         'minor',
         'nit'
     ];
+    const severityEmoji = {
+        critical: '🔴 Critical',
+        major: '🟠 Major',
+        minor: '🟡 Minor',
+        nit: '🔵 Nit'
+    };
+    // Generate AI prompts for all findings
+    const generateAiPrompt = (findings) => {
+        if (findings.length === 0)
+            return '';
+        return `Verify each finding against the current code and fix the issues.\n\n` +
+            findings.map(f => `In \`@${f.file}\` around lines ${f.lines}: ${f.title}. ${f.details}`).join('\n\n');
+    };
     const groupedFindings = severityOrder
         .map(severity => {
         const findings = acceptedFindings.filter(finding => finding.severity === severity);
@@ -13935,12 +13966,15 @@ ${commentChain}
             return '';
         }
         const renderedFindings = findings
-            .map(finding => `- [${finding.file}:${finding.lines}] **${finding.title}** - ${finding.details}`)
-            .join('\n');
-        return `#### ${capitalize(severity)}\n${renderedFindings}`;
+            .map(finding => `**${finding.file}** (${finding.lines}): ${finding.title}\n\n${finding.details}\n`)
+            .join('\n---\n');
+        return `<details>
+<summary>${severityEmoji[severity]} (${findings.length})</summary>\n\n${renderedFindings}\n</details>`;
     })
         .filter(section => section !== '')
         .join('\n\n');
+    // Generate AI prompts for all accepted findings
+    const allFindingsPrompt = generateAiPrompt(acceptedFindings);
     const changesTable = summaryResults
         .map(([filename, summary]) => `| ${filename} | ${summary.replace(/\n/g, ' ')} |`)
         .join('\n');
@@ -13971,6 +14005,16 @@ ${changesTable}
 ${groupedFindings || 'No actionable findings.'}
 
 ${discardedSection}
+
+---
+
+**🤖 Prompt for AI Agents**
+\n\n<details>
+<summary>Click to copy fix prompt</summary>
+
+\`\`\`\n${allFindingsPrompt}\n\`\`\`
+
+</details>
 
 ${lib_commenter/* RAW_SUMMARY_START_TAG */.oi}
 ${inputs.rawSummary}
@@ -14233,6 +14277,222 @@ function capitalize(value) {
     }
     return value[0].toUpperCase() + value.slice(1);
 }
+// ============================================
+// Context-aware code review - caller context fetching
+// ============================================
+/**
+ * Extract function and class definitions from file content
+ * Supports JavaScript, TypeScript, Python, Java, Go, Rust
+ */
+const extractDefinitions = (content, filename) => {
+    const definitions = [];
+    const ext = filename.split('.').pop()?.toLowerCase();
+    if (ext === 'ts' || ext === 'tsx' || ext === 'js' || ext === 'jsx') {
+        // TypeScript/JavaScript: function declarations, arrow functions, classes, exports
+        const patterns = [
+            /(?:export\s+)?(?:async\s+)?function\s+(\w+)/g,
+            /(?:export\s+)?(?:async\s+)?(?:const|let|var)\s+(\w+)\s*=/g,
+            /(?:export\s+)?class\s+(\w+)/g,
+            /(?:export\s+)?(?:async\s+)?(\w+)\s*\([^)]*\)\s*[:{]/g
+        ];
+        for (const pattern of patterns) {
+            let match;
+            while ((match = pattern.exec(content)) !== null) {
+                const name = match[1];
+                if (name && !name.startsWith('_') && name.length > 2) {
+                    definitions.push(name);
+                }
+            }
+        }
+    }
+    else if (ext === 'py') {
+        // Python: function and class definitions
+        const patterns = [/^(?:async\s+)?def\s+(\w+)/gm, /^class\s+(\w+)/gm];
+        for (const pattern of patterns) {
+            let match;
+            while ((match = pattern.exec(content)) !== null) {
+                const name = match[1];
+                if (name && !name.startsWith('_')) {
+                    definitions.push(name);
+                }
+            }
+        }
+    }
+    else if (ext === 'go') {
+        // Go: function and type declarations
+        const patterns = [
+            /func\s+(?:\([^)]+\)\s+)?(\w+)/g,
+            /type\s+(\w+)\s+(?:struct|interface)/g
+        ];
+        for (const pattern of patterns) {
+            let match;
+            while ((match = pattern.exec(content)) !== null) {
+                const name = match[1];
+                if (name && !name.startsWith('_')) {
+                    definitions.push(name);
+                }
+            }
+        }
+    }
+    else if (ext === 'rs') {
+        // Rust: function and struct definitions
+        const patterns = [
+            /(?:pub\s+)?(?:async\s+)?fn\s+(\w+)/g,
+            /(?:pub\s+)?struct\s+(\w+)/g,
+            /(?:pub\s+)?enum\s+(\w+)/g
+        ];
+        for (const pattern of patterns) {
+            let match;
+            while ((match = pattern.exec(content)) !== null) {
+                const name = match[1];
+                if (name && !name.startsWith('_')) {
+                    definitions.push(name);
+                }
+            }
+        }
+    }
+    else if (ext === 'java') {
+        // Java: method and class declarations
+        const patterns = [
+            /(?:public|private|protected)\s+(?:static\s+)?(?:\w+\s+)+(\w+)\s*\(/g,
+            /class\s+(\w+)/g
+        ];
+        for (const pattern of patterns) {
+            let match;
+            while ((match = pattern.exec(content)) !== null) {
+                const name = match[1];
+                if (name && !name.startsWith('_')) {
+                    definitions.push(name);
+                }
+            }
+        }
+    }
+    return [...new Set(definitions)];
+};
+/**
+ * Fetch file contents from GitHub
+ */
+const fetchFileContent = async (filePath, ref) => {
+    try {
+        const contents = await octokit/* octokit.repos.getContent */.K.repos.getContent({
+            owner: repo.owner,
+            repo: repo.repo,
+            path: filePath,
+            ref
+        });
+        if (contents.data != null &&
+            !Array.isArray(contents.data) &&
+            contents.data.type === 'file' &&
+            contents.data.content != null) {
+            return Buffer.from(contents.data.content, 'base64').toString();
+        }
+    }
+    catch {
+        // File not found or other error
+    }
+    return '';
+};
+/**
+ * Extract relevant code sections around definitions/callers
+ */
+const extractRelevantSections = (content, definitions, maxLines = 50) => {
+    if (definitions.length === 0 || !content) {
+        return '';
+    }
+    const lines = content.split('\n');
+    const relevantLines = new Set();
+    for (const def of definitions) {
+        // Find lines containing the definition or its usage
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].includes(def)) {
+                // Include surrounding context (5 lines before and after)
+                for (let j = Math.max(0, i - 5); j < Math.min(lines.length, i + 10); j++) {
+                    relevantLines.add(j);
+                }
+            }
+        }
+    }
+    if (relevantLines.size === 0) {
+        return '';
+    }
+    const sortedLines = [...relevantLines].sort((a, b) => a - b);
+    const selectedLines = sortedLines.slice(0, maxLines);
+    return selectedLines.map(i => `${i + 1}: ${lines[i]}`).join('\n');
+};
+/**
+ * Build caller context based on context depth setting
+ * - shallow: no caller context (diff only)
+ * - medium: diff + callers of changed functions (if available)
+ * - deep: full file content of calling files
+ */
+const buildCallerContext = async (changedFiles, contextDepth, baseSha) => {
+    if (contextDepth === 'shallow') {
+        return '';
+    }
+    const allDefinitions = [];
+    for (const file of changedFiles) {
+        const defs = extractDefinitions(file.content, file.filename);
+        allDefinitions.push(...defs.map(d => `${file.filename}:${d}`));
+    }
+    if (allDefinitions.length === 0) {
+        return '';
+    }
+    const contextParts = [];
+    if (contextDepth === 'medium') {
+        // Medium: Get caller references but not full content
+        contextParts.push('## Caller Context (Functions that use changed code)');
+        contextParts.push('\nNote: The following functions/classes in this PR are called by other parts of the codebase. Consider how changes might affect these callers:\n');
+        // For medium, we just list the definitions that might have callers
+        contextParts.push(`Changed definitions that may have callers: ${allDefinitions.join(', ')}`);
+        contextParts.push('\nReview tip: Consider how these changes might impact upstream callers.');
+    }
+    else if (contextDepth === 'deep') {
+        // Deep: Fetch actual caller file contents
+        contextParts.push('## Caller Context (Full caller file sections)');
+        contextParts.push('\nThe following code sections show how changed functions are used in the codebase:\n');
+        // Group definitions by file
+        const defsByFile = new Map();
+        for (const def of allDefinitions) {
+            const [filename, funcName] = def.split(':');
+            const existing = defsByFile.get(filename) || [];
+            existing.push(funcName);
+            defsByFile.set(filename, existing);
+        }
+        // Fetch and extract relevant sections from each file
+        for (const [filename, defs] of defsByFile) {
+            const content = await fetchFileContent(filename, baseSha);
+            if (content) {
+                const sections = extractRelevantSections(content, defs, 30);
+                if (sections) {
+                    contextParts.push(`\n### ${filename}`);
+                    contextParts.push('```');
+                    contextParts.push(sections);
+                    contextParts.push('```');
+                }
+            }
+        }
+    }
+    return contextParts.join('\n');
+};
+/**
+ * Main function to gather caller context for changed files
+ */
+const gatherCallerContext = async (filesAndChanges, contextDepth, baseSha) => {
+    if (contextDepth === 'shallow' || filesAndChanges.length === 0) {
+        return '';
+    }
+    const changedFiles = filesAndChanges.map(([filename, content]) => ({
+        filename,
+        content
+    }));
+    try {
+        return await buildCallerContext(changedFiles, contextDepth, baseSha);
+    }
+    catch (e) {
+        (0,core.warning)(`Failed to gather caller context: ${e}`);
+        return '';
+    }
+};
 
 
 /***/ }),
