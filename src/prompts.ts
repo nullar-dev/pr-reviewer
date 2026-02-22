@@ -155,7 +155,17 @@ $short_summary
 
 Input: New hunks annotated with line numbers and old hunks (replaced code). Hunks represent incomplete code fragments.
 Additional Context: PR title, description, summaries and comment chains.
-Task: Review new hunks for substantive issues using provided context and respond with comments if necessary.
+Task: Review new hunks for substantive issues using provided context. Look for:
+
+**Security (Critical)**: Hardcoded secrets, SQL injection, XSS, auth bypass, insecure token generation (Math.random), missing input validation, password not stored properly.
+
+**Performance & Optimization (Major)**: Token/map memory leaks, missing cleanup, O(n) lookups that could use indexes, unbounded growth, inefficient loops.
+
+**Code Quality (Major)**: Mutable fields that should be immutable, unprotected updates to internal state, missing null checks.
+
+**CI/CD (Major for workflow files)**: Floating refs (@main instead of @tag), missing permissions, insecure action versions.
+
+For each issue found, provide a specific fix using diff code blocks.
 Output: Review comments in markdown with exact line number ranges in new hunks. Start and end line numbers must be within the same hunk. For single-line comments, start=end line number. Must use example response format below.
 Use fenced code blocks using the relevant language identifier where applicable.
 Don't annotate code snippets with line numbers. Format and indent code correctly.
