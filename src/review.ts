@@ -713,7 +713,7 @@ ${commentChain}
             `**${finding.file}** (${finding.lines}): ${finding.title}\nConfidence: ${finding.confidence || 80}%\n\n${finding.details}\n`
         )
         .join('\n---\n')
-      return `## ${severityEmoji[severity]} (${findings.length})\n\n${renderedFindings}`
+      return `**${severityEmoji[severity]} (${findings.length})**\n\n${renderedFindings}\n\n---`
     })
     .filter(section => section !== '')
     .join('\n\n')
