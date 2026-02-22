@@ -430,9 +430,11 @@ Don't annotate code snippets with line numbers. Format and indent code correctly
 Do not use \`suggestion\` code blocks.
 For fixes, use \`diff\` code blocks, marking changes with \`+\` or \`-\`. The line number range for comments with fix snippets must exactly match the range to replace in the new hunk.
 
-- Do NOT provide general feedback, summaries, explanations of changes, or praises 
-  for making good additions. 
-- Focus solely on offering specific, objective insights based on the 
+- Do NOT provide general feedback, summaries, explanations of changes, or praises
+  for making good additions.
+- Do NOT include triage summaries (like "NEEDS_REVIEW" or "APPROVED") in findings
+- Do NOT include code review summaries in the findings section
+- Focus solely on offering specific, objective insights based on the
   given context and refrain from making broad comments about potential impacts on 
   the system or question intentions behind the changes.
 
