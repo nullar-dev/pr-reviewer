@@ -497,6 +497,23 @@ Focus on these categories:
 - Prototype pollution via object spread
 - Unsafe eval/Function
 
+**7. API & Protocol Security**:
+- GraphQL: missing rate limiting, introspection enabled, missing authorization on resolvers
+- WebSocket: missing origin validation, no message size limits
+- REST: missing rate limiting, improper auth headers
+- gRPC: metadata credentials exposure
+
+**8. AI/ML Specific** (if applicable):
+- Prompt injection in user inputs
+- Tool injection / function call abuse
+- Model output not validated
+- Training data exposure via logs
+
+**9. Supply Chain**:
+- Vulnerable dependencies
+- Typosquatting attacks
+- Compromised packages
+
 ABSENCE REASONING - What's MISSING:
 - Data access without ownership check? (IDOR)
 - Secrets compared with == instead of constant-time?
@@ -566,11 +583,31 @@ Focus on these categories:
 - Incorrect return values
 - Logic inversions
 
+**4. Boundary & Edge Cases**:
+- Empty collections, null, undefined handling
+- Integer overflow for large numbers (MAX_SAFE_INTEGER)
+- Division by zero, infinite loops
+- Locale-dependent operations (String.toLowerCase, sort)
+- Timezone handling issues
+- Unicode edge cases (BMP vs surrogate pairs)
+
+**5. State & Transitions**:
+- Invalid state transitions not validated
+- Race conditions in state updates
+- Non-atomic compound operations
+- Mutable global/shared state
+
+**6. Contract & Interface**:
+- Breaking changes to public APIs
+- Missing backward compatibility
+- Error contract violations
+
 ABSENCE REASONING - What's MISSING:
 - Floating-point used for financial calculations?
 - Validation happens AFTER the operation it guards?
 - Off-by-one in boundary checks?
 - Type coercion bugs from ==?
+- Empty/null edge cases handled?
 
 ## Severity
 - critical: Data corruption possible
@@ -827,11 +864,32 @@ Focus on these categories:
 - Missing finally blocks for cleanup
 - Resource leaks on error paths
 
+**6. Rate Limiting & Throttling**:
+- No per-user rate limiting
+- Missing rate limit headers (X-RateLimit-*)
+- No request queuing/backpressure
+
+**7. Graceful Degradation**:
+- No fallback when dependencies fail
+- Missing circuit breaker state handling
+- No health checks / readiness probes
+
+**8. Idempotency**:
+- Duplicate operations possible on retry
+- Missing idempotency keys for critical operations
+- Non-idempotent operations on retry
+
+**9. Data Consistency**:
+- No transactions for multi-step operations
+- Optimistic locking missing for concurrent updates
+- Stale data reads (no read-after-write consistency)
+
 ABSENCE REASONING - What's MISSING:
 - External calls without timeouts?
 - No circuit breaker for third-party services?
 - Retry without idempotency protection?
 - Errors caught but not logged/rethrown?
+- No per-user rate limits?
 
 ## Severity
 - critical: Service can fail catastrophically
@@ -904,11 +962,38 @@ Focus on these categories:
 - No alerts configured for failures
 - Missing SLO definitions
 
+**7. Structured Logging**:
+- Logs not in JSON format
+- Missing log levels (DEBUG/INFO/WARN/ERROR)
+- No request correlation IDs
+- Inconsistent field names across logs
+
+**8. OpenTelemetry Compatibility**:
+- No trace context propagation
+- Missing span attributes
+- No baggage for custom metadata
+
+**9. PII & Security**:
+- PII in logs (emails, names, IPs)
+- Credentials/tokens logged
+- Missing data redaction
+
+**10. Error Budgets & SLOs**:
+- No error budget tracking
+- Missing availability targets
+- No blast radius considerations
+
+**11. On-Call & Runbooks**:
+- No on-call rotation notes
+- Missing escalation paths
+- No incident response templates
+
 ABSENCE REASONING - What's MISSING:
 - No logging for critical paths?
 - No metrics for key operations?
 - Complex logic without tests?
 - Missing error documentation?
+- PII being logged?
 
 ## Severity
 - critical: Can't debug production issues
