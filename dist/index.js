@@ -13061,6 +13061,23 @@ $patches
 You are the leader reviewer. Validate every candidate finding against the patch context.
 Reject findings that are incorrect, duplicates, too vague, or not actionable.
 
+IMPORTANT: Do NOT reject findings about these advanced patterns — they are real and critical even when they seem theoretical or unlikely:
+- Timing attacks on secret/token comparison (=== vs constant-time compare)
+- Prototype pollution via object spread/merge/assign of user-controlled input
+- TOCTOU race conditions between async check and subsequent data use
+- Floating-point precision errors in financial/monetary calculations
+- Off-by-one errors in boundary/limit checks (< vs <=)
+- Missing authorization/ownership checks on data access endpoints (IDOR)
+- Unicode normalization bypasses and homoglyph attacks
+- ReDoS from nested regex quantifiers on user input
+- JWT algorithm confusion (alg: 'none') or missing signature verification
+- Dead validation that runs after the side effect it should guard
+- Unbounded in-memory collection growth (memory leaks)
+- Type coercion bugs (== vs ===)
+- Insecure randomness (Math.random for security-sensitive values)
+
+When in doubt, ACCEPT the finding. False negatives (missing real issues) are far worse than false positives for a security reviewer.
+
 Severity must be one of: critical, major, minor, nit.
 
 Return EXACTLY this format:
@@ -13178,15 +13195,97 @@ $short_summary
 
 Input: New hunks annotated with line numbers and old hunks (replaced code). Hunks represent incomplete code fragments.
 Additional Context: PR title, description, summaries and comment chains.
-Task: Review new hunks for substantive issues using provided context. Look for:
+Task: Review new hunks for substantive issues using provided context. You must act as a senior security engineer, logic auditor, and performance specialist combined. Be strict — flag every real issue regardless of how subtle.
 
-**Security (Critical)**: Hardcoded secrets, SQL injection, XSS, auth bypass, insecure token generation (Math.random), missing input validation, password not stored properly.
+Systematically check for ALL of the following:
 
-**Performance & Optimization (Major)**: Token/map memory leaks, missing cleanup, O(n) lookups that could use indexes, unbounded growth, inefficient loops.
+**Security — Injection & Code Execution (Critical)**:
+- SQL injection, command injection, XSS (reflected/stored/DOM), code injection (eval/Function/new Function/setTimeout with strings)
+- Template injection, XPath injection, log injection, NoSQL injection, LDAP injection, XXE
+- Deserialization of untrusted data (JSON.parse of user input piped into sensitive operations)
+- Prototype pollution: unsafe merge/spread/Object.assign of user-controlled objects — check if any user input flows into \`{...defaults, ...userInput}\` or similar patterns
 
-**Code Quality (Major)**: Mutable fields that should be immutable, unprotected updates to internal state, missing null checks.
+**Security — Authentication & Access Control (Critical)** [OWASP A01, A07]:
+- Auth bypass, missing authentication on sensitive endpoints or operations
+- IDOR (Insecure Direct Object Reference): can a user access, modify, or delete another user's data by changing an ID, key, or parameter? Flag ANY data access method that takes an ID without verifying the requester owns it
+- Broken access control: privilege escalation, inverted role checks, admin functions accessible to regular users
+- JWT vulnerabilities: algorithm confusion (accepting 'none' or 'HS256' when 'RS256' expected), missing signature verification, trusting decoded payload without cryptographic validation, token not expiring
+- Session fixation, insecure session management, missing logout invalidation
 
-**CI/CD (Major for workflow files)**: Floating refs (@main instead of @tag), missing permissions, insecure action versions.
+**Security — Cryptographic & Timing (Critical)** [OWASP A04]:
+- Hardcoded secrets, API keys, credentials, tokens, connection strings in source code or config files
+- Insecure randomness: Math.random() used for tokens, IDs, secrets, nonces, or anything security-sensitive — must use crypto.randomUUID/crypto.getRandomValues
+- Timing attacks: comparing secrets, tokens, hashes, or API keys using == or === instead of crypto.timingSafeEqual — string comparison short-circuits and leaks information through response time
+- Weak/broken cryptographic algorithms (MD5, SHA1 for passwords; DES, RC4 for encryption)
+- Missing salt in password hashing, insufficient key derivation rounds
+
+**Security — Sensitive Data Handling (Critical)** [PCI-DSS, GDPR]:
+- Plaintext storage of passwords, credit card numbers, CVV, SSN, PII, tokens, session IDs
+- Information disclosure: stack traces, internal file paths, database errors, SQL queries, or partial secrets leaked to clients, API responses, or log output
+- Clear-text logging of credentials, tokens, card numbers, or PII
+- Sensitive data in URL parameters, GET requests, or browser-accessible storage
+- Missing data encryption at rest or in transit
+
+**Security — Advanced Attack Patterns (Critical/Major)**:
+- TOCTOU (Time-of-Check-Time-of-Use): security check (auth, ownership, permission, balance) separated from the operation it guards by ANY async boundary (await, callback, setTimeout) — an attacker can change state between the check and the use. Flag if check and use are separate async calls.
+- ReDoS: regex with nested quantifiers (\`(a+)+\`, \`(a|a)*\`, \`(\\d+[- ]?){n,m}\`), catastrophic backtracking on user-controlled input. Any regex applied to user input with nested repetition is dangerous.
+- Unicode/encoding: normalization bypasses (comparing strings normalized differently — NFC vs NFD vs NFKC), homoglyph attacks (visually similar characters bypassing filters), missing canonicalization before security-relevant comparison
+- SSRF: user-controlled URLs, hostnames, or IP addresses used in server-side HTTP requests, DNS lookups, or file operations
+- Open redirect: user-controlled redirect target without allowlist validation
+- Mass assignment: user input directly spread into database update/create operations
+
+**Data Integrity & Correctness (Critical/Major)**:
+- Floating-point arithmetic for monetary/financial values — 0.1 + 0.2 !== 0.3 in IEEE 754. Any money calculation using float/double is a bug. Must use integer cents, BigInt, or Decimal library
+- Integer overflow in multiplication or accumulation with large user-controlled values
+- Type coercion: == instead of === (loose equality), implicit conversions that silently change behavior (\`"0" == false\`, \`null == undefined\`, \`[] == false\`)
+- Off-by-one errors: < vs <=, > vs >=, fence-post errors in loops, array bounds, pagination, rate limit checks
+- Dead code / unreachable validation: a check that runs AFTER the side effect it should guard (e.g., validating amount after already processing payment)
+- Incorrect operator: && vs ||, ! applied to wrong variable, negation logic errors
+- Silent failures: catch blocks that swallow errors without logging or re-throwing
+
+**Performance & Resource Management (Major)**:
+- Memory leaks: Maps, Sets, arrays, caches, or object pools that grow without bound — no eviction policy, no TTL, no max size limit. Flag ANY in-memory collection that is appended to but never pruned.
+- Missing cleanup/disposal: unclosed connections, uncleared intervals/timeouts, detached event listeners, unreleased file handles
+- Resource exhaustion from deep object traversal, recursive structures, or user-controlled iteration depth
+- O(n) or O(n²) operations that should use indexed lookups (Map/Set instead of Array.find/filter)
+- N+1 query patterns, redundant computations in loops
+
+**Concurrency & Race Conditions (Major)**:
+- Non-atomic read-modify-write: reading shared state, computing, then writing back without a lock/mutex — concurrent operations can interleave and corrupt state
+- Missing synchronization for concurrent access to Maps, counters, balances, or any shared mutable state
+- TOCTOU in async code: await between checking a condition and acting on it
+
+**Input Validation & Error Handling (Major)**:
+- Missing validation on user-controlled values: amounts (negative? zero? NaN? Infinity?), sizes, counts, array indices, string lengths
+- Missing bounds checking on array/map access
+- Unchecked null/undefined on values that may not exist
+- Error handlers that expose internals or silently continue with corrupted state
+- Missing Content-Type validation, missing request size limits
+
+**Code Quality & Logic (Major)**:
+- Mutable internal state exposed to callers without defensive copy
+- Inconsistent state updates (partial update on error, no rollback)
+- Unreachable code paths, dead branches, tautological conditions
+- Shadowed variables that may cause confusion
+- Functions with side effects that callers may not expect
+
+**CI/CD & Infrastructure (Major for workflow/config files)**:
+- Floating refs: @main or @master instead of pinned SHA or version tag
+- Missing or overly permissive permissions block
+- Insecure action versions, dependencies downloaded over HTTP
+- Secrets exposed in workflow logs or environment variables passed insecurely
+
+**Think about what's MISSING, not just what's wrong:**
+- Is there a data access endpoint without ownership/authorization verification? (IDOR)
+- Is there a Map/cache/Set that grows but has no eviction, cleanup, TTL, or size limit? (memory leak)
+- Is there a security check separated from the data operation by an async boundary? (TOCTOU)
+- Are secrets or tokens compared using == or === instead of constant-time comparison? (timing attack)
+- Are financial/monetary calculations using floating-point instead of integer cents? (precision error)
+- Is user input merged/spread into objects without sanitizing __proto__ or constructor keys? (prototype pollution)
+- Is a regex with nested quantifiers applied to user-controlled input? (ReDoS)
+- Is validation done AFTER the operation it should guard? (dead validation)
+- Can a user call an admin/privileged function without proper role verification? (broken access control)
+- Is an ID generated with Math.random() used for anything security-sensitive? (predictable IDs)
 
 For each issue found, provide a specific fix using diff code blocks.
 Output: Review comments in markdown with exact line number ranges in new hunks. Start and end line numbers must be within the same hunk. For single-line comments, start=end line number. Must use example response format below.
