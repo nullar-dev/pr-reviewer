@@ -422,16 +422,29 @@ ${commentChain}
         .join('\n')
     : 'None'
 
-  const validationInputs = inputs.clone()
-  validationInputs.allFindings = findingsText
-  validationInputs.patches = patchContextChunks.join('\n\n')
-  const validationPrompt = prompts.renderLeaderValidation(validationInputs)
-  const [leaderValidationResponse] = await leaderBot.chat(validationPrompt, {})
+  // Skip leader validation - use all findings directly
+  // TODO: Add option to enable leader validation in the future
+  const acceptedFindings = allReviewerFindings.map(f => {
+    // Try to extract severity from comment if present
+    let severity: 'critical' | 'major' | 'minor' | 'nit' = 'major'
+    const lowerComment = f.comment.toLowerCase()
+    if (lowerComment.includes('critical') || lowerComment.includes('security') || lowerComment.includes('vulnerability')) {
+      severity = 'critical'
+    } else if (lowerComment.includes('minor') || lowerComment.includes('code smell')) {
+      severity = 'minor'
+    } else if (lowerComment.includes('nit') || lowerComment.includes('style')) {
+      severity = 'nit'
+    }
+    return {
+      severity,
+      file: f.filename,
+      lines: `${f.startLine}-${f.endLine}`,
+      title: 'Issue found by reviewer',
+      details: f.comment.trim().substring(0, 500)
+    }
+  })
 
-  const acceptedFindings = parseLeaderAcceptedFindings(leaderValidationResponse)
-  const discardedFindings = parseLeaderDiscardedFindings(
-    leaderValidationResponse
-  )
+  const discardedFindings: Array<{reason: string, original: string}> = []
 
   const severityOrder: Array<LeaderAcceptedFinding['severity']> = [
     'critical',
