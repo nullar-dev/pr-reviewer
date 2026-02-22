@@ -226,6 +226,8 @@ LGTM!
 ## Changes made to \`$filename\` for your review
 
 $patches
+
+$caller_context
 `
 
   comment = `A comment was made on a GitHub PR review for a 

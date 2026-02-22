@@ -247,6 +247,14 @@ ${hunks.oldHunk}
     return
   }
 
+  // Gather caller context based on context depth setting
+  const callerContext = await gatherCallerContext(
+    filesAndChanges,
+    options.contextDepth,
+    context.payload.pull_request.base.sha
+  )
+  inputs.callerContext = callerContext
+
   const limitedFiles =
     options.maxFiles > 0
       ? filesAndChanges.slice(0, options.maxFiles)
@@ -498,7 +506,7 @@ ${SHORT_SUMMARY_END_TAG}
   await commenter.comment(`${summarizeComment}`, SUMMARIZE_TAG, 'replace')
 }
 
-const splitPatch = (patch: string | null | undefined): string[] => {
+export const splitPatch = (patch: string | null | undefined): string[] => {
   if (patch == null) {
     return []
   }
@@ -522,7 +530,7 @@ const splitPatch = (patch: string | null | undefined): string[] => {
   return result
 }
 
-const patchStartEndLine = (
+export const patchStartEndLine = (
   patch: string
 ): {
   oldHunk: {startLine: number; endLine: number}
@@ -549,7 +557,7 @@ const patchStartEndLine = (
   return null
 }
 
-const parsePatch = (
+export const parsePatch = (
   patch: string
 ): {oldHunk: string; newHunk: string} | null => {
   const hunkInfo = patchStartEndLine(patch)
@@ -598,7 +606,7 @@ const parsePatch = (
   }
 }
 
-function parseReview(
+export function parseReview(
   response: string,
   patches: Array<[number, number, string]>,
   debug = false
@@ -697,7 +705,10 @@ function parseReview(
   return reviews
 }
 
-function sanitizeCodeBlock(comment: string, codeBlockLabel: string): string {
+export function sanitizeCodeBlock(
+  comment: string,
+  codeBlockLabel: string
+): string {
   const codeBlockStart = `\`\`\`${codeBlockLabel}`
   const codeBlockEnd = '```'
   const lineNumberRegex = /^ *(\d+): /gm
@@ -741,7 +752,7 @@ function sanitizeResponse(comment: string): string {
   return comment
 }
 
-function parseLeaderAcceptedFindings(
+export function parseLeaderAcceptedFindings(
   response: string
 ): LeaderAcceptedFinding[] {
   const sectionMatch = response.match(
@@ -788,7 +799,7 @@ function parseLeaderAcceptedFindings(
   return accepted
 }
 
-function parseLeaderDiscardedFindings(
+export function parseLeaderDiscardedFindings(
   response: string
 ): LeaderDiscardedFinding[] {
   const sectionMatch = response.match(/### Discarded Findings([\s\S]*)$/)
@@ -818,9 +829,281 @@ function parseLeaderDiscardedFindings(
   return discarded
 }
 
-function capitalize(value: string): string {
+export function capitalize(value: string): string {
   if (value.length === 0) {
     return value
   }
   return value[0].toUpperCase() + value.slice(1)
+}
+
+// ============================================
+// Context-aware code review - caller context fetching
+// ============================================
+
+/**
+ * Extract function and class definitions from file content
+ * Supports JavaScript, TypeScript, Python, Java, Go, Rust
+ */
+export const extractDefinitions = (
+  content: string,
+  filename: string
+): string[] => {
+  const definitions: string[] = []
+  const ext = filename.split('.').pop()?.toLowerCase()
+
+  if (ext === 'ts' || ext === 'tsx' || ext === 'js' || ext === 'jsx') {
+    // TypeScript/JavaScript: function declarations, arrow functions, classes, exports
+    const patterns = [
+      /(?:export\s+)?(?:async\s+)?function\s+(\w+)/g,
+      /(?:export\s+)?(?:async\s+)?(?:const|let|var)\s+(\w+)\s*=/g,
+      /(?:export\s+)?class\s+(\w+)/g,
+      /(?:export\s+)?(?:async\s+)?(\w+)\s*\([^)]*\)\s*[:{]/g
+    ]
+
+    for (const pattern of patterns) {
+      let match
+      while ((match = pattern.exec(content)) !== null) {
+        const name = match[1]
+        if (name && !name.startsWith('_') && name.length > 2) {
+          definitions.push(name)
+        }
+      }
+    }
+  } else if (ext === 'py') {
+    // Python: function and class definitions
+    const patterns = [/^(?:async\s+)?def\s+(\w+)/gm, /^class\s+(\w+)/gm]
+
+    for (const pattern of patterns) {
+      let match
+      while ((match = pattern.exec(content)) !== null) {
+        const name = match[1]
+        if (name && !name.startsWith('_')) {
+          definitions.push(name)
+        }
+      }
+    }
+  } else if (ext === 'go') {
+    // Go: function and type declarations
+    const patterns = [
+      /func\s+(?:\([^)]+\)\s+)?(\w+)/g,
+      /type\s+(\w+)\s+(?:struct|interface)/g
+    ]
+
+    for (const pattern of patterns) {
+      let match
+      while ((match = pattern.exec(content)) !== null) {
+        const name = match[1]
+        if (name && !name.startsWith('_')) {
+          definitions.push(name)
+        }
+      }
+    }
+  } else if (ext === 'rs') {
+    // Rust: function and struct definitions
+    const patterns = [
+      /(?:pub\s+)?(?:async\s+)?fn\s+(\w+)/g,
+      /(?:pub\s+)?struct\s+(\w+)/g,
+      /(?:pub\s+)?enum\s+(\w+)/g
+    ]
+
+    for (const pattern of patterns) {
+      let match
+      while ((match = pattern.exec(content)) !== null) {
+        const name = match[1]
+        if (name && !name.startsWith('_')) {
+          definitions.push(name)
+        }
+      }
+    }
+  } else if (ext === 'java') {
+    // Java: method and class declarations
+    const patterns = [
+      /(?:public|private|protected)\s+(?:static\s+)?(?:\w+\s+)+(\w+)\s*\(/g,
+      /class\s+(\w+)/g
+    ]
+
+    for (const pattern of patterns) {
+      let match
+      while ((match = pattern.exec(content)) !== null) {
+        const name = match[1]
+        if (name && !name.startsWith('_')) {
+          definitions.push(name)
+        }
+      }
+    }
+  }
+
+  return [...new Set(definitions)]
+}
+
+/**
+ * Fetch file contents from GitHub
+ */
+const fetchFileContent = async (
+  filePath: string,
+  ref: string
+): Promise<string> => {
+  try {
+    const contents = await octokit.repos.getContent({
+      owner: repo.owner,
+      repo: repo.repo,
+      path: filePath,
+      ref
+    })
+
+    if (
+      contents.data != null &&
+      !Array.isArray(contents.data) &&
+      contents.data.type === 'file' &&
+      contents.data.content != null
+    ) {
+      return Buffer.from(contents.data.content, 'base64').toString()
+    }
+  } catch {
+    // File not found or other error
+  }
+  return ''
+}
+
+/**
+ * Extract relevant code sections around definitions/callers
+ */
+const extractRelevantSections = (
+  content: string,
+  definitions: string[],
+  maxLines = 50
+): string => {
+  if (definitions.length === 0 || !content) {
+    return ''
+  }
+
+  const lines = content.split('\n')
+  const relevantLines = new Set<number>()
+
+  for (const def of definitions) {
+    // Find lines containing the definition or its usage
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes(def)) {
+        // Include surrounding context (5 lines before and after)
+        for (
+          let j = Math.max(0, i - 5);
+          j < Math.min(lines.length, i + 10);
+          j++
+        ) {
+          relevantLines.add(j)
+        }
+      }
+    }
+  }
+
+  if (relevantLines.size === 0) {
+    return ''
+  }
+
+  const sortedLines = [...relevantLines].sort((a, b) => a - b)
+  const selectedLines = sortedLines.slice(0, maxLines)
+
+  return selectedLines.map(i => `${i + 1}: ${lines[i]}`).join('\n')
+}
+
+/**
+ * Build caller context based on context depth setting
+ * - shallow: no caller context (diff only)
+ * - medium: diff + callers of changed functions (if available)
+ * - deep: full file content of calling files
+ */
+const buildCallerContext = async (
+  changedFiles: Array<{filename: string; content: string}>,
+  contextDepth: 'shallow' | 'medium' | 'deep',
+  baseSha: string
+): Promise<string> => {
+  if (contextDepth === 'shallow') {
+    return ''
+  }
+
+  const allDefinitions: string[] = []
+  for (const file of changedFiles) {
+    const defs = extractDefinitions(file.content, file.filename)
+    allDefinitions.push(...defs.map(d => `${file.filename}:${d}`))
+  }
+
+  if (allDefinitions.length === 0) {
+    return ''
+  }
+
+  const contextParts: string[] = []
+
+  if (contextDepth === 'medium') {
+    // Medium: Get caller references but not full content
+    contextParts.push('## Caller Context (Functions that use changed code)')
+    contextParts.push(
+      '\nNote: The following functions/classes in this PR are called by other parts of the codebase. Consider how changes might affect these callers:\n'
+    )
+
+    // For medium, we just list the definitions that might have callers
+    contextParts.push(
+      `Changed definitions that may have callers: ${allDefinitions.join(', ')}`
+    )
+    contextParts.push(
+      '\nReview tip: Consider how these changes might impact upstream callers.'
+    )
+  } else if (contextDepth === 'deep') {
+    // Deep: Fetch actual caller file contents
+    contextParts.push('## Caller Context (Full caller file sections)')
+    contextParts.push(
+      '\nThe following code sections show how changed functions are used in the codebase:\n'
+    )
+
+    // Group definitions by file
+    const defsByFile = new Map<string, string[]>()
+    for (const def of allDefinitions) {
+      const [filename, funcName] = def.split(':')
+      const existing = defsByFile.get(filename) || []
+      existing.push(funcName)
+      defsByFile.set(filename, existing)
+    }
+
+    // Fetch and extract relevant sections from each file
+    for (const [filename, defs] of defsByFile) {
+      const content = await fetchFileContent(filename, baseSha)
+      if (content) {
+        const sections = extractRelevantSections(content, defs, 30)
+        if (sections) {
+          contextParts.push(`\n### ${filename}`)
+          contextParts.push('```')
+          contextParts.push(sections)
+          contextParts.push('```')
+        }
+      }
+    }
+  }
+
+  return contextParts.join('\n')
+}
+
+/**
+ * Main function to gather caller context for changed files
+ */
+const gatherCallerContext = async (
+  filesAndChanges: Array<
+    [string, string, string, Array<[number, number, string]>]
+  >,
+  contextDepth: 'shallow' | 'medium' | 'deep',
+  baseSha: string
+): Promise<string> => {
+  if (contextDepth === 'shallow' || filesAndChanges.length === 0) {
+    return ''
+  }
+
+  const changedFiles = filesAndChanges.map(([filename, content]) => ({
+    filename,
+    content
+  }))
+
+  try {
+    return await buildCallerContext(changedFiles, contextDepth, baseSha)
+  } catch (e) {
+    warning(`Failed to gather caller context: ${e}`)
+    return ''
+  }
 }

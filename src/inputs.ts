@@ -12,6 +12,7 @@ export class Inputs {
   commentChain: string
   comment: string
   allFindings: string
+  callerContext: string
 
   constructor(
     systemMessage = '',
@@ -26,7 +27,8 @@ export class Inputs {
     diff = 'no diff',
     commentChain = 'no other comments on this patch',
     comment = 'no comment provided',
-    allFindings = ''
+    allFindings = '',
+    callerContext = ''
   ) {
     this.systemMessage = systemMessage
     this.title = title
@@ -41,6 +43,7 @@ export class Inputs {
     this.commentChain = commentChain
     this.comment = comment
     this.allFindings = allFindings
+    this.callerContext = callerContext
   }
 
   clone(): Inputs {
@@ -57,7 +60,8 @@ export class Inputs {
       this.diff,
       this.commentChain,
       this.comment,
-      this.allFindings
+      this.allFindings,
+      this.callerContext
     )
   }
 
@@ -103,6 +107,9 @@ export class Inputs {
     }
     if (this.allFindings) {
       content = content.replace('$all_findings', this.allFindings)
+    }
+    if (this.callerContext) {
+      content = content.replace('$caller_context', this.callerContext)
     }
     return content
   }

@@ -21,6 +21,7 @@ export class Options {
   leaderApiBaseUrl: string
   leaderApiKeyEnv: string
   helperConfigs: HelperConfig[]
+  contextDepth: 'shallow' | 'medium' | 'deep'
   modelTemperature: number
   apiRetries: number
   apiTimeoutMS: number
@@ -52,6 +53,7 @@ export class Options {
     leaderApiBaseUrl = '',
     leaderApiKeyEnv = 'AI_API_KEY',
     helperModels = '',
+    contextDepth = 'medium',
     modelTemperature = '0.0',
     apiRetries = '3',
     apiTimeoutMS = '120000',
@@ -106,6 +108,7 @@ export class Options {
     this.leaderTokenLimits = new TokenLimits(this.leaderModel)
     this.apiBaseUrl = resolvedApiBaseUrl
     this.language = language
+    this.contextDepth = this.parseContextDepth(contextDepth)
 
     this.openaiLightModel = this.leaderModel
     this.openaiHeavyModel = this.leaderModel
@@ -194,6 +197,15 @@ export class Options {
       warning(`Failed to parse helper_models JSON: ${e}`)
       return []
     }
+  }
+
+  private parseContextDepth(value: string): 'shallow' | 'medium' | 'deep' {
+    const normalized = value?.trim()?.toLowerCase()
+    if (normalized === 'shallow' || normalized === 'deep') {
+      return normalized
+    }
+    // Default to 'medium' for any invalid or missing value
+    return 'medium'
   }
 }
 
