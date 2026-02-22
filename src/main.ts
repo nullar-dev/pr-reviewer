@@ -25,6 +25,7 @@ export async function run(): Promise<void> {
     getInput('leader_api_base_url'),
     getInput('leader_api_key_env'),
     getInput('helper_models'),
+    getInput('context_depth'),
     getInput('model_temperature'),
     getInput('api_retries'),
     getInput('api_timeout_ms'),
