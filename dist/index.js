@@ -13792,6 +13792,163 @@ $comment
     renderPerformanceReview(inputs) {
         return inputs.render(this.performanceReview);
     }
+    reliabilityReview = `## GitHub PR Title
+
+\`$title\`
+
+## Description
+
+\`\`\`
+$description
+\`\`\`
+
+## Summary of changes
+
+\`\`\`
+$short_summary
+\`\`\`
+
+## RELIABILITY REVIEW - Deep Focus
+
+You are a senior reliability engineer. Review this code for reliability and resilience issues ONLY.
+
+Focus on these categories:
+
+**1. Timeouts & Circuit Breakers**:
+- Missing timeouts on external calls (DB, API, cache)
+- No circuit breaker pattern for failing services
+- No bulkhead isolation between components
+
+**2. Retry & Backoff**:
+- Missing retry logic for transient failures
+- No exponential backoff (just fixed retries)
+- Retry without idempotency keys = duplicate operations
+- Retry storms when all clients retry simultaneously
+
+**3. Error Handling**:
+- Silent failures: catch blocks that swallow errors
+- Error swallowing without logging
+- Returning success when operation partially failed
+- Inconsistent error types/messages
+
+**4. Partial Failures**:
+- What happens when some operations in a batch fail?
+- Database transactions not used for multi-step operations
+- No saga pattern for distributed transactions
+
+**5. Resource Management**:
+- Unclosed connections, streams, file handles
+- Missing finally blocks for cleanup
+- Resource leaks on error paths
+
+ABSENCE REASONING - What's MISSING:
+- External calls without timeouts?
+- No circuit breaker for third-party services?
+- Retry without idempotency protection?
+- Errors caught but not logged/rethrown?
+
+## Severity
+- critical: Service can fail catastrophically
+- major: Reliability issues causing outages
+- minor: Degraded performance/behavior
+- nit: Style issue
+
+Output format:
+### FILENAME:LINES
+SEVERITY: critical|major|minor|nit
+CONFIDENCE: 0-100%
+TITLE: short title
+DETAILS: specific rationale and fix
+---
+
+## Changes made to \`$filename\` for your review
+
+$patches
+
+$caller_context
+`;
+    observabilityReview = `## GitHub PR Title
+
+\`$title\`
+
+## Description
+
+\`\`\`
+$description
+\`\`\`
+
+## Summary of changes
+
+\`\`\`
+$short_summary
+\`\`\`
+
+## OBSERVABILITY & TESTING REVIEW - Deep Focus
+
+You are a senior software engineer. Review this code for observability and testing ONLY.
+
+Focus on these categories:
+
+**1. Logging**:
+- Missing logs for important operations
+- Sensitive data in logs (PII, credentials, tokens)
+- Inconsistent log levels
+- No correlation IDs for tracing requests
+
+**2. Metrics**:
+- No metrics for critical operations
+- Missing latency histograms
+- No error rate tracking
+
+**3. Tracing**:
+- No trace IDs for distributed tracing
+- Missing spans for external calls
+
+**4. Testing**:
+- No unit tests for complex logic
+- Missing edge case tests
+- No integration tests for multi-component flows
+
+**5. Runbooks & Docs**:
+- No comments for complex logic
+- Missing error handling documentation
+
+**6. Alerts**:
+- No alerts configured for failures
+- Missing SLO definitions
+
+ABSENCE REASONING - What's MISSING:
+- No logging for critical paths?
+- No metrics for key operations?
+- Complex logic without tests?
+- Missing error documentation?
+
+## Severity
+- critical: Can't debug production issues
+- major: Hard to diagnose problems
+- minor: Minor improvement
+- nit: Style issue
+
+Output format:
+### FILENAME:LINES
+SEVERITY: critical|major|minor|nit
+CONFIDENCE: 0-100%
+TITLE: short title
+DETAILS: specific rationale and fix
+---
+
+## Changes made to \`$filename\` for your review
+
+$patches
+
+$caller_context
+`;
+    renderReliabilityReview(inputs) {
+        return inputs.render(this.reliabilityReview);
+    }
+    renderObservabilityReview(inputs) {
+        return inputs.render(this.observabilityReview);
+    }
     renderLeaderValidation(inputs) {
         return inputs.render(this.leaderValidation);
     }
@@ -14499,9 +14656,11 @@ ${commentChain}
         const reviewPrompts = [
             { pass: 'security', prompt: prompts.renderSecurityReview(ins) },
             { pass: 'logic', prompt: prompts.renderLogicReview(ins) },
-            { pass: 'performance', prompt: prompts.renderPerformanceReview(ins) }
+            { pass: 'performance', prompt: prompts.renderPerformanceReview(ins) },
+            { pass: 'reliability', prompt: prompts.renderReliabilityReview(ins) },
+            { pass: 'observability', prompt: prompts.renderObservabilityReview(ins) }
         ];
-        // Run all 3 passes × all bots in parallel
+        // Run all 5 passes × all bots in parallel
         const allPassResults = await Promise.all(reviewBots.flatMap(({ name: botName, bot }) => reviewPrompts.map(async ({ pass, prompt }) => {
             const [response] = await bot.chat(prompt, {});
             return { botName, pass, response, patches };

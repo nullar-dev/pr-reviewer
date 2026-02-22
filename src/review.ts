@@ -574,10 +574,12 @@ ${commentChain}
         const reviewPrompts = [
           {pass: 'security', prompt: prompts.renderSecurityReview(ins)},
           {pass: 'logic', prompt: prompts.renderLogicReview(ins)},
-          {pass: 'performance', prompt: prompts.renderPerformanceReview(ins)}
+          {pass: 'performance', prompt: prompts.renderPerformanceReview(ins)},
+          {pass: 'reliability', prompt: prompts.renderReliabilityReview(ins)},
+          {pass: 'observability', prompt: prompts.renderObservabilityReview(ins)}
         ]
 
-        // Run all 3 passes × all bots in parallel
+        // Run all 5 passes × all bots in parallel
         const allPassResults = await Promise.all(
           reviewBots.flatMap(({name: botName, bot}) =>
             reviewPrompts.map(async ({pass, prompt}) => {
