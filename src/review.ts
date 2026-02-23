@@ -32,6 +32,7 @@ interface Review {
 
 interface ParsedReviewerFinding extends Review {
   reviewer: string
+  reviewers?: string[]
   filename: string
 }
 
@@ -42,6 +43,7 @@ interface LeaderAcceptedFinding {
   lines: string
   title: string
   details: string
+  reviewers: string[]
 }
 
 interface LeaderDiscardedFinding {
@@ -99,14 +101,28 @@ function deduplicateFindings(
       }
     }
 
-    // If similar finding exists, keep the better one
+    // If similar finding exists, keep the better one and merge reviewers
     if (bestMatch && bestScore > 0.7) {
       // Compare and keep the more comprehensive one
       if (isMoreComprehensive(finding, bestMatch, severityPriority)) {
+        // Merge reviewers from both findings
+        const existingReviewers = bestMatch.reviewers || [bestMatch.reviewer]
+        if (!existingReviewers.includes(finding.reviewer)) {
+          existingReviewers.push(finding.reviewer)
+        }
+        finding.reviewers = existingReviewers
         seen.set(bestMatchKey!, finding)
+      } else {
+        // Add current reviewer to existing finding
+        const existingReviewers = bestMatch.reviewers || [bestMatch.reviewer]
+        if (!existingReviewers.includes(finding.reviewer)) {
+          existingReviewers.push(finding.reviewer)
+          bestMatch.reviewers = existingReviewers
+        }
       }
     } else {
-      // New unique finding - store with primary key
+      // New unique finding - store with primary key and initialize reviewers
+      finding.reviewers = [finding.reviewer]
       seen.set(lineKey, finding)
     }
   }
@@ -502,11 +518,6 @@ ${hunks.oldHunk}
     return cleaned.replace(/^#{1,6}\s+.+$/gm, '').trim()
   }
 
-  const [walkthroughRaw] = await leaderBot.chat(
-    prompts.renderSummarize(inputs),
-    {}
-  )
-  const walkthrough = stripMarkdownHeaders(walkthroughRaw)
   const [shortSummaryRaw] = await leaderBot.chat(
     prompts.renderSummarizeShort(inputs),
     {}
@@ -668,7 +679,7 @@ ${commentChain}
     }
 
     // Extract title from comment (format: "TITLE: ..." or "### FILENAME:LINES\nSEVERITY: ...\nTITLE: ...")
-    let title = 'Issue found by reviewer'
+    let title = `Issue found by ${f.reviewer}`
     const titleMatch = f.comment.match(/TITLE:\s*(.+)/i)
     if (titleMatch) {
       title = titleMatch[1].trim().substring(0, 100)
@@ -681,6 +692,9 @@ ${commentChain}
       details = detailsMatch[1].trim().substring(0, 500)
     }
 
+    // Get all reviewers who found this issue
+    const reviewers = f.reviewers || [f.reviewer]
+
     return {
       severity,
       confidence,
@@ -688,10 +702,9 @@ ${commentChain}
       details,
       file: f.filename,
       lines: `${f.startLine}-${f.endLine}`,
+      reviewers,
     }
   })
-
-  const discardedFindings: Array<{reason: string, original: string}> = []
 
   const severityOrder: Array<LeaderAcceptedFinding['severity']> = [
     'critical',
@@ -720,9 +733,12 @@ No issues found.
 
 </details>`
       }
-      // Clean simple format: filename (lines): title. Details. Confidence: XX%
+      // Clean simple format: filename (lines): Issue found by model(s). Title. Details. Confidence: XX%
       const simpleFindings = findings
-        .map(f => `${f.file} (${f.lines}): ${f.title}. ${f.details.replace(/\n/g, ' ')}. Confidence: ${f.confidence || 80}%`)
+        .map(f => {
+          const reviewers = f.reviewers?.join(', ') || 'reviewer'
+          return `${f.file} (${f.lines}): Issue found by ${reviewers}. ${f.title}. ${f.details.replace(/\n/g, ' ')}. Confidence: ${f.confidence || 80}%`
+        })
         .join('\n\n')
       // Collapsible with emoji header
       return `<details>
@@ -734,34 +750,6 @@ ${simpleFindings}
     })
     .filter(section => section !== '')
     .join('\n\n')
-
-  const changesTable = summaryResults
-    .map(
-      ([filename, summary]) =>
-        `| ${filename} | ${summary.replace(/\n/g, ' ')} |`
-    )
-    .join('\n')
-
-  const discardedSection = discardedFindings.length
-    ? `<details>
-<summary>Discarded by leader (${discardedFindings.length})</summary>
-
-${discardedFindings
-  .map(
-    discarded =>
-      `- Reason: ${
-        discarded.reason
-      }\n  - Original: ${discarded.original.replace(/\n/g, ' ')}`
-  )
-  .join('\n')}
-
-</details>`
-    : `<details>
-<summary>Discarded by leader (0)</summary>
-
-None
-
-</details>`
 
   // Simplified output: only findings sections, nothing else
   let summarizeComment = groupedFindings || 'No actionable findings.'
@@ -1082,7 +1070,7 @@ export function parseLeaderAcceptedFindings(
       const confidenceStr = block.match(/CONFIDENCE:\s*(\d+)%/i)?.[1] ?? '80'
       const confidence = parseInt(confidenceStr, 10)
 
-      accepted.push({severity, confidence, file, lines, title, details})
+      accepted.push({severity, confidence, file, lines, title, details, reviewers: ['leader']})
     }
   }
 
