@@ -13131,10 +13131,12 @@ $file_diff
 ## Instructions
 
 I would like you to succinctly summarize the diff within 100 words.
-If applicable, your summary should include a note about alterations 
-to the signatures of exported functions, global data structures and 
-variables, and any changes that might affect the external interface or 
+If applicable, your summary should include a note about alterations
+to the signatures of exported functions, global data structures and
+variables, and any changes that might affect the external interface or
 behavior of the code.
+
+IMPORTANT: Do NOT use markdown headers (##, ###) in your summary. Just write plain text.
 `;
     triageFileDiff = `Below the summary, I would also like you to triage the diff as \`NEEDS_REVIEW\` or 
 \`APPROVED\` based on the following criteria:
