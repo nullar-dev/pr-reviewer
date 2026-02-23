@@ -488,14 +488,21 @@ ${hunks.oldHunk}
     .map(([filename, summary]) => `---\n${filename}: ${summary}`)
     .join('\n')
 
-  const [walkthrough] = await leaderBot.chat(
+  // Strip markdown headers from AI response to prevent duplication
+  const stripMarkdownHeaders = (text: string): string => {
+    return text.replace(/^#{1,6}\s+.+$/gm, '').trim()
+  }
+
+  const [walkthroughRaw] = await leaderBot.chat(
     prompts.renderSummarize(inputs),
     {}
   )
-  const [shortSummary] = await leaderBot.chat(
+  const walkthrough = stripMarkdownHeaders(walkthroughRaw)
+  const [shortSummaryRaw] = await leaderBot.chat(
     prompts.renderSummarizeShort(inputs),
     {}
   )
+  const shortSummary = stripMarkdownHeaders(shortSummaryRaw)
   inputs.shortSummary = shortSummary
 
   if (!options.disableReleaseNotes) {

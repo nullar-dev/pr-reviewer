@@ -14749,8 +14749,14 @@ ${hunks.oldHunk}
     inputs.rawSummary = summaryResults
         .map(([filename, summary]) => `---\n${filename}: ${summary}`)
         .join('\n');
-    const [walkthrough] = await leaderBot.chat(prompts.renderSummarize(inputs), {});
-    const [shortSummary] = await leaderBot.chat(prompts.renderSummarizeShort(inputs), {});
+    // Strip markdown headers from AI response to prevent duplication
+    const stripMarkdownHeaders = (text) => {
+        return text.replace(/^#{1,6}\s+.+$/gm, '').trim();
+    };
+    const [walkthroughRaw] = await leaderBot.chat(prompts.renderSummarize(inputs), {});
+    const walkthrough = stripMarkdownHeaders(walkthroughRaw);
+    const [shortSummaryRaw] = await leaderBot.chat(prompts.renderSummarizeShort(inputs), {});
+    const shortSummary = stripMarkdownHeaders(shortSummaryRaw);
     inputs.shortSummary = shortSummary;
     if (!options.disableReleaseNotes) {
         const [releaseNotesResponse] = await leaderBot.chat(prompts.renderSummarizeReleaseNotes(inputs), {});
