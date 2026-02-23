@@ -14919,13 +14919,10 @@ ${commentChain}
         const renderedFindings = findings
             .map(finding => `**${finding.file}** (${finding.lines}): ${finding.title}\nConfidence: ${finding.confidence || 80}%\n\n${finding.details}\n`)
             .join('\n---\n');
-        // Use proper collapsible format - each severity in its own <details> block
-        return `<details>
-<summary>${severityEmoji[severity]} (${findings.length})</summary>
+        // Simple plain sections - no collapsible
+        return `### ${severityEmoji[severity]} (${findings.length})
 
-${renderedFindings}
-
-</details>`;
+${renderedFindings}`;
     })
         .filter(section => section !== '')
         .join('\n\n');
