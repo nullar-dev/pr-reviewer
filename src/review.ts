@@ -711,15 +711,15 @@ ${commentChain}
       const findings = acceptedFindings.filter(
         finding => finding.severity === severity
       )
+      // Always show section, even if 0 findings
       if (findings.length === 0) {
-        return ''
+        return `<details>
+<summary>${severityEmoji[severity]} (0)</summary>
+
+No issues found.
+
+</details>`
       }
-      const renderedFindings = findings
-        .map(
-          finding =>
-            `**${finding.file}** (${finding.lines}): ${finding.title}\nConfidence: ${finding.confidence || 80}%\n\n${finding.details}\n`
-        )
-        .join('\n---\n')
       // Clean simple format: filename (lines): title. Details. Confidence: XX%
       const simpleFindings = findings
         .map(f => `${f.file} (${f.lines}): ${f.title}. ${f.details.replace(/\n/g, ' ')}. Confidence: ${f.confidence || 80}%`)
