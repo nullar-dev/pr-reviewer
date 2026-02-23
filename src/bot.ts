@@ -35,7 +35,26 @@ export class Bot {
     try {
       return await this.chat_(message, ids)
     } catch (e) {
-      warning(`Failed to chat: ${e}`)
+      const errorMsg = e instanceof Error ? e.message : String(e)
+      // Check for common API key/auth errors
+      if (
+        errorMsg.includes('401') ||
+        errorMsg.includes('403') ||
+        errorMsg.includes('authentication') ||
+        errorMsg.includes('api key') ||
+        errorMsg.includes('unauthorized') ||
+        errorMsg.includes('invalid')
+      ) {
+        warning(
+          `API key authentication failed for ${this.providerOptions.model}: ${errorMsg} - check API key is valid and not expired`
+        )
+      } else if (errorMsg.includes('429') || errorMsg.includes('rate limit')) {
+        warning(
+          `Rate limit exceeded for ${this.providerOptions.model}: ${errorMsg}`
+        )
+      } else {
+        warning(`Failed to chat with ${this.providerOptions.model}: ${e}`)
+      }
       return ['', ids]
     }
   }
@@ -99,7 +118,9 @@ IMPORTANT: Entire response must be in the language with ISO code: ${this.options
     const responseText =
       typeof responseContent === 'string' ? responseContent : ''
     if (responseText === '') {
-      warning('provider response is empty')
+      warning(
+        `provider ${this.providerOptions.model} returned empty response - check API key validity and quota`
+      )
     }
 
     if (this.options.debug) {

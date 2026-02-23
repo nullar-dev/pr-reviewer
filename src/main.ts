@@ -86,9 +86,16 @@ export async function run(): Promise<void> {
         )
       )
     } catch (e) {
-      warning(
-        `Skipped helper model '${helper.model}' due to initialization failure: ${e}`
-      )
+      const errorMsg = e instanceof Error ? e.message : String(e)
+      if (errorMsg.includes('environment variable') && errorMsg.includes('not set')) {
+        warning(
+          `Skipped helper model '${helper.model}': API key environment variable '${helper.apiKeyEnv}' is not set in repository secrets`
+        )
+      } else {
+        warning(
+          `Skipped helper model '${helper.model}': ${errorMsg}`
+        )
+      }
     }
   }
 
