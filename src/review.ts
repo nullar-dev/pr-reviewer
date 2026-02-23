@@ -111,6 +111,10 @@ function deduplicateFindings(
           existingReviewers.push(finding.reviewer)
         }
         finding.reviewers = existingReviewers
+        // Remove old entry if key is different
+        if (lineKey !== bestMatchKey) {
+          seen.delete(lineKey)
+        }
         seen.set(bestMatchKey!, finding)
       } else {
         // Add current reviewer to existing finding
@@ -625,7 +629,7 @@ ${commentChain}
             }
             allReviewerFindings.push({
               ...finding,
-              reviewer: `${botName}:${pass}`,
+              reviewer: botName,
               filename
             })
           }

@@ -14503,6 +14503,10 @@ function deduplicateFindings(findings) {
                     existingReviewers.push(finding.reviewer);
                 }
                 finding.reviewers = existingReviewers;
+                // Remove old entry if key is different
+                if (lineKey !== bestMatchKey) {
+                    seen.delete(lineKey);
+                }
                 seen.set(bestMatchKey, finding);
             }
             else {
@@ -14871,7 +14875,7 @@ ${commentChain}
                 }
                 allReviewerFindings.push({
                     ...finding,
-                    reviewer: `${botName}:${pass}`,
+                    reviewer: botName,
                     filename
                 });
             }
