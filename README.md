@@ -31,7 +31,7 @@ Alternative providers if you're feeling fancy:
 
 1. Repo → Settings → Secrets and variables → Actions
 2. Click "New repository secret"
-3. Name: `OPENAI_API_KEY` (or whatever you want, just remember it)
+3. Name: `MINIMAX_API_KEY` (or whatever you want, just remember it)
 4. Value: Paste your API key
 5. Click "Add secret"
 
@@ -56,10 +56,10 @@ jobs:
         with:
           leader_model: MiniMax-M2.5
           leader_api_base_url: https://api.minimax.io/v1
-          leader_api_key_env: OPENAI_API_KEY
+          leader_api_key_env: MINIMAX_API_KEY
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
 ```
 
 ### Step 4: Make a PR
@@ -77,11 +77,11 @@ Two AI models catch more bugs. It's like double coverage.
   with:
     leader_model: MiniMax-M2.5
     leader_api_base_url: https://api.minimax.io/v1
-    leader_api_key_env: OPENAI_API_KEY
+    leader_api_key_env: MINIMAX_API_KEY
     helper_models: '[{"model":"GLM-4.7","apiBaseUrl":"https://api.z.ai/api/paas/v4","apiKeyEnv":"GLM_API_KEY"}]'
   env:
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
     GLM_API_KEY: ${{ secrets.GLM_API_KEY }}
 ```
 
