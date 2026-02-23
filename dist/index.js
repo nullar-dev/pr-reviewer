@@ -10131,7 +10131,19 @@ IMPORTANT: Entire response must be in the language with ISO code: ${this.options
         const responseContent = response.choices[0]?.message?.content;
         const responseText = typeof responseContent === 'string' ? responseContent : '';
         if (responseText === '') {
-            (0,core.warning)(`provider ${this.providerOptions.model} returned empty response - check API key validity and quota`);
+            // Detailed debugging for empty responses
+            const choices = response.choices;
+            const firstChoice = choices[0];
+            const finishReason = firstChoice?.finish_reason;
+            const hasContent = firstChoice?.message?.content !== undefined;
+            (0,core.warning)(`provider ${this.providerOptions.model} returned empty response - ` +
+                `finish_reason: ${finishReason || 'undefined'}, ` +
+                `hasContent: ${hasContent}, ` +
+                `choices.length: ${choices.length}`);
+            // Log full response in debug mode for troubleshooting
+            if (this.options.debug) {
+                (0,core.info)(`Empty response details for ${this.providerOptions.model}: ${JSON.stringify(response)}`);
+            }
         }
         if (this.options.debug) {
             (0,core.info)(`provider response text: ${responseText}`);
@@ -14919,10 +14931,13 @@ ${commentChain}
             confidence = parseInt(confidenceMatch[1], 10);
         }
         // Extract title from comment (format: "TITLE: ..." or "### FILENAME:LINES\nSEVERITY: ...\nTITLE: ...")
-        let title = `Issue found by ${f.reviewer}`;
+        // Don't include "Issue found by" here - it will be added in the output format
+        let title = 'Code issue';
         const titleMatch = f.comment.match(/TITLE:\s*(.+)/i);
         if (titleMatch) {
             title = titleMatch[1].trim().substring(0, 100);
+            // Strip any "Issue found by" prefix from AI-generated titles to avoid duplication
+            title = title.replace(/^Issue found by\s+[\w\-]+\.?\s*/i, '');
         }
         // Extract details - everything after DETAILS:
         let details = f.comment.trim().substring(0, 500);

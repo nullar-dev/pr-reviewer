@@ -683,10 +683,13 @@ ${commentChain}
     }
 
     // Extract title from comment (format: "TITLE: ..." or "### FILENAME:LINES\nSEVERITY: ...\nTITLE: ...")
-    let title = `Issue found by ${f.reviewer}`
+    // Don't include "Issue found by" here - it will be added in the output format
+    let title = 'Code issue'
     const titleMatch = f.comment.match(/TITLE:\s*(.+)/i)
     if (titleMatch) {
       title = titleMatch[1].trim().substring(0, 100)
+      // Strip any "Issue found by" prefix from AI-generated titles to avoid duplication
+      title = title.replace(/^Issue found by\s+[\w\-]+\.?\s*/i, '')
     }
 
     // Extract details - everything after DETAILS:

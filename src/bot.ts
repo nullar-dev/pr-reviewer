@@ -123,9 +123,22 @@ IMPORTANT: Entire response must be in the language with ISO code: ${this.options
     const responseText =
       typeof responseContent === 'string' ? responseContent : ''
     if (responseText === '') {
+      // Detailed debugging for empty responses
+      const choices = response.choices
+      const firstChoice = choices[0]
+      const finishReason = firstChoice?.finish_reason
+      const hasContent = firstChoice?.message?.content !== undefined
+
       warning(
-        `provider ${this.providerOptions.model} returned empty response - check API key validity and quota`
+        `provider ${this.providerOptions.model} returned empty response - ` +
+        `finish_reason: ${finishReason || 'undefined'}, ` +
+        `hasContent: ${hasContent}, ` +
+        `choices.length: ${choices.length}`
       )
+      // Log full response in debug mode for troubleshooting
+      if (this.options.debug) {
+        info(`Empty response details for ${this.providerOptions.model}: ${JSON.stringify(response)}`)
+      }
     }
 
     if (this.options.debug) {
