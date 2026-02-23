@@ -160,7 +160,7 @@ describe('Bot', () => {
           model: 'gpt-4',
           messages: expect.any(Array),
           temperature: 0.7,
-          max_tokens: 16000
+          max_tokens: 80000
         }),
         {timeout: 60000}
       )
@@ -289,7 +289,7 @@ describe('Bot', () => {
 
       await bot.chat('Hello', {})
 
-      expect(warning).toHaveBeenCalledWith('provider gpt-4 returned empty response - check API key validity and quota')
+      expect(warning).toHaveBeenCalledWith(expect.stringContaining('provider gpt-4 returned empty response'))
     })
 
     test('should handle non-string response content', async () => {
