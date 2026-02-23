@@ -720,10 +720,17 @@ ${commentChain}
             `**${finding.file}** (${finding.lines}): ${finding.title}\nConfidence: ${finding.confidence || 80}%\n\n${finding.details}\n`
         )
         .join('\n---\n')
-      // Simple plain sections - no collapsible
-      return `### ${severityEmoji[severity]} (${findings.length})
+      // Clean simple format: filename (lines): title. Details. Confidence: XX%
+      const simpleFindings = findings
+        .map(f => `${f.file} (${f.lines}): ${f.title}. ${f.details.replace(/\n/g, ' ')}. Confidence: ${f.confidence || 80}%`)
+        .join('\n\n')
+      // Collapsible with emoji header
+      return `<details>
+<summary>${severityEmoji[severity]} (${findings.length})</summary>
 
-${renderedFindings}`
+${simpleFindings}
+
+</details>`
     })
     .filter(section => section !== '')
     .join('\n\n')
