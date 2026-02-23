@@ -113,9 +113,6 @@ with:
 
 ```yaml
 with:
-  # Only want summaries? No problem
-  disable_review: false
-
   # Don't need release notes? Cool
   disable_release_notes: false
 ```
