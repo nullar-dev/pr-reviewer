@@ -10924,6 +10924,8 @@ async function run() {
     const helperBots = [];
     for (const helper of options.helperConfigs) {
         try {
+            (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.info)(`Initializing helper model: ${helper.model}, apiKeyEnv: ${helper.apiKeyEnv}`);
+            (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.info)(`Checking env var: ${helper.apiKeyEnv}, value: ${process.env[helper.apiKeyEnv] ? 'SET' : 'NOT SET'}`);
             helperBots.push(new _bot__WEBPACK_IMPORTED_MODULE_1__/* .Bot */ .r(options, new _options__WEBPACK_IMPORTED_MODULE_2__/* .ProviderOptions */ .xF(helper.model, null, helper.apiBaseUrl, helper.apiKeyEnv)));
         }
         catch (e) {

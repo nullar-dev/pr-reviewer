@@ -2,6 +2,7 @@ import {
   getBooleanInput,
   getInput,
   getMultilineInput,
+  info,
   setFailed,
   warning
 } from '@actions/core'
@@ -71,6 +72,8 @@ export async function run(): Promise<void> {
   const helperBots: Bot[] = []
   for (const helper of options.helperConfigs) {
     try {
+      info(`Initializing helper model: ${helper.model}, apiKeyEnv: ${helper.apiKeyEnv}`)
+      info(`Checking env var: ${helper.apiKeyEnv}, value: ${process.env[helper.apiKeyEnv] ? 'SET' : 'NOT SET'}`)
       helperBots.push(
         new Bot(
           options,
