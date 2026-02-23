@@ -1,4 +1,4 @@
-require('./sourcemap-register.js');/******/ (() => { // webpackBootstrap
+/******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
 /***/ 308:
@@ -10049,6 +10049,10 @@ class Bot {
     client = null;
     options;
     providerOptions;
+    // Expose model name for use in reporting which model found issues
+    get modelName() {
+        return this.providerOptions.model;
+    }
     constructor(options, providerOptions) {
         this.options = options;
         this.providerOptions = providerOptions;
@@ -10066,7 +10070,22 @@ class Bot {
             return await this.chat_(message, ids);
         }
         catch (e) {
-            (0,core.warning)(`Failed to chat: ${e}`);
+            const errorMsg = e instanceof Error ? e.message : String(e);
+            // Check for common API key/auth errors
+            if (errorMsg.includes('401') ||
+                errorMsg.includes('403') ||
+                errorMsg.includes('authentication') ||
+                errorMsg.includes('api key') ||
+                errorMsg.includes('unauthorized') ||
+                errorMsg.includes('invalid')) {
+                (0,core.warning)(`API key authentication failed for ${this.providerOptions.model}: ${errorMsg} - check API key is valid and not expired`);
+            }
+            else if (errorMsg.includes('429') || errorMsg.includes('rate limit')) {
+                (0,core.warning)(`Rate limit exceeded for ${this.providerOptions.model}: ${errorMsg}`);
+            }
+            else {
+                (0,core.warning)(`Failed to chat with ${this.providerOptions.model}: ${e}`);
+            }
             return ['', ids];
         }
     };
@@ -10112,7 +10131,7 @@ IMPORTANT: Entire response must be in the language with ISO code: ${this.options
         const responseContent = response.choices[0]?.message?.content;
         const responseText = typeof responseContent === 'string' ? responseContent : '';
         if (responseText === '') {
-            (0,core.warning)('provider response is empty');
+            (0,core.warning)(`provider ${this.providerOptions.model} returned empty response - check API key validity and quota`);
         }
         if (this.options.debug) {
             (0,core.info)(`provider response text: ${responseText}`);
@@ -10925,7 +10944,13 @@ async function run() {
             helperBots.push(new _bot__WEBPACK_IMPORTED_MODULE_1__/* .Bot */ .r(options, new _options__WEBPACK_IMPORTED_MODULE_2__/* .ProviderOptions */ .xF(helper.model, null, helper.apiBaseUrl, helper.apiKeyEnv)));
         }
         catch (e) {
-            (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.warning)(`Skipped helper model '${helper.model}' due to initialization failure: ${e}`);
+            const errorMsg = e instanceof Error ? e.message : String(e);
+            if (errorMsg.includes('environment variable') && errorMsg.includes('not set')) {
+                (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.warning)(`Skipped helper model '${helper.model}': API key environment variable '${helper.apiKeyEnv}' is not set in repository secrets`);
+            }
+            else {
+                (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.warning)(`Skipped helper model '${helper.model}': ${errorMsg}`);
+            }
         }
     }
     try {
@@ -14468,15 +14493,30 @@ function deduplicateFindings(findings) {
                 }
             }
         }
-        // If similar finding exists, keep the better one
+        // If similar finding exists, keep the better one and merge reviewers
         if (bestMatch && bestScore > 0.7) {
             // Compare and keep the more comprehensive one
             if (isMoreComprehensive(finding, bestMatch, severityPriority)) {
+                // Merge reviewers from both findings
+                const existingReviewers = bestMatch.reviewers || [bestMatch.reviewer];
+                if (!existingReviewers.includes(finding.reviewer)) {
+                    existingReviewers.push(finding.reviewer);
+                }
+                finding.reviewers = existingReviewers;
                 seen.set(bestMatchKey, finding);
+            }
+            else {
+                // Add current reviewer to existing finding
+                const existingReviewers = bestMatch.reviewers || [bestMatch.reviewer];
+                if (!existingReviewers.includes(finding.reviewer)) {
+                    existingReviewers.push(finding.reviewer);
+                    bestMatch.reviewers = existingReviewers;
+                }
             }
         }
         else {
-            // New unique finding - store with primary key
+            // New unique finding - store with primary key and initialize reviewers
+            finding.reviewers = [finding.reviewer];
             seen.set(lineKey, finding);
         }
     }
@@ -14758,8 +14798,6 @@ ${hunks.oldHunk}
         cleaned = cleaned.replace(/^##\s+.*$/gm, '').trim();
         return cleaned.replace(/^#{1,6}\s+.+$/gm, '').trim();
     };
-    const [walkthroughRaw] = await leaderBot.chat(prompts.renderSummarize(inputs), {});
-    const walkthrough = stripMarkdownHeaders(walkthroughRaw);
     const [shortSummaryRaw] = await leaderBot.chat(prompts.renderSummarizeShort(inputs), {});
     const shortSummary = stripMarkdownHeaders(shortSummaryRaw);
     inputs.shortSummary = shortSummary;
@@ -14776,8 +14814,8 @@ ${hunks.oldHunk}
         }
     }
     const reviewBots = [
-        { name: 'leader', bot: leaderBot },
-        ...helperBots.map((bot, index) => ({ name: `helper-${index + 1}`, bot }))
+        { name: leaderBot.modelName, bot: leaderBot },
+        ...helperBots.map((bot) => ({ name: bot.modelName, bot }))
     ];
     const allReviewerFindings = [];
     const patchContextChunks = [];
@@ -14877,7 +14915,7 @@ ${commentChain}
             confidence = parseInt(confidenceMatch[1], 10);
         }
         // Extract title from comment (format: "TITLE: ..." or "### FILENAME:LINES\nSEVERITY: ...\nTITLE: ...")
-        let title = 'Issue found by reviewer';
+        let title = `Issue found by ${f.reviewer}`;
         const titleMatch = f.comment.match(/TITLE:\s*(.+)/i);
         if (titleMatch) {
             title = titleMatch[1].trim().substring(0, 100);
@@ -14888,6 +14926,8 @@ ${commentChain}
         if (detailsMatch) {
             details = detailsMatch[1].trim().substring(0, 500);
         }
+        // Get all reviewers who found this issue
+        const reviewers = f.reviewers || [f.reviewer];
         return {
             severity,
             confidence,
@@ -14895,9 +14935,9 @@ ${commentChain}
             details,
             file: f.filename,
             lines: `${f.startLine}-${f.endLine}`,
+            reviewers,
         };
     });
-    const discardedFindings = [];
     const severityOrder = [
         'critical',
         'major',
@@ -14922,9 +14962,12 @@ No issues found.
 
 </details>`;
         }
-        // Clean simple format: filename (lines): title. Details. Confidence: XX%
+        // Clean simple format: filename (lines): Issue found by model(s). Title. Details. Confidence: XX%
         const simpleFindings = findings
-            .map(f => `${f.file} (${f.lines}): ${f.title}. ${f.details.replace(/\n/g, ' ')}. Confidence: ${f.confidence || 80}%`)
+            .map(f => {
+            const reviewers = f.reviewers?.join(', ') || 'reviewer';
+            return `${f.file} (${f.lines}): Issue found by ${reviewers}. ${f.title}. ${f.details.replace(/\n/g, ' ')}. Confidence: ${f.confidence || 80}%`;
+        })
             .join('\n\n');
         // Collapsible with emoji header
         return `<details>
@@ -14936,24 +14979,6 @@ ${simpleFindings}
     })
         .filter(section => section !== '')
         .join('\n\n');
-    const changesTable = summaryResults
-        .map(([filename, summary]) => `| ${filename} | ${summary.replace(/\n/g, ' ')} |`)
-        .join('\n');
-    const discardedSection = discardedFindings.length
-        ? `<details>
-<summary>Discarded by leader (${discardedFindings.length})</summary>
-
-${discardedFindings
-            .map(discarded => `- Reason: ${discarded.reason}\n  - Original: ${discarded.original.replace(/\n/g, ' ')}`)
-            .join('\n')}
-
-</details>`
-        : `<details>
-<summary>Discarded by leader (0)</summary>
-
-None
-
-</details>`;
     // Simplified output: only findings sections, nothing else
     let summarizeComment = groupedFindings || 'No actionable findings.';
     summarizeComment += `\n${commenter.addReviewedCommitId(existingCommitIdsBlock, commits[commits.length - 1].sha)}`;
@@ -15195,7 +15220,7 @@ function parseLeaderAcceptedFindings(response) {
             // Extract confidence if present
             const confidenceStr = block.match(/CONFIDENCE:\s*(\d+)%/i)?.[1] ?? '80';
             const confidence = parseInt(confidenceStr, 10);
-            accepted.push({ severity, confidence, file, lines, title, details });
+            accepted.push({ severity, confidence, file, lines, title, details, reviewers: ['leader'] });
         }
     }
     return accepted;
@@ -48200,4 +48225,3 @@ module.exports = JSON.parse('[[[0,44],"disallowed_STD3_valid"],[[45,46],"valid"]
 /******/ 	
 /******/ })()
 ;
-//# sourceMappingURL=index.js.map
