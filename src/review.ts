@@ -488,9 +488,18 @@ ${hunks.oldHunk}
     .map(([filename, summary]) => `---\n${filename}: ${summary}`)
     .join('\n')
 
-  // Strip markdown headers from AI response to prevent duplication
+  // Strip markdown headers and think tags from AI response to prevent duplication
   const stripMarkdownHeaders = (text: string): string => {
-    return text.replace(/^#{1,6}\s+.+$/gm, '').trim()
+    // Remove think tags and their content
+    let cleaned = text.replace(/<思考>/g, '').replace(/<\/思考>/g, '')
+    cleaned = cleaned.replace(/<think>/g, '').replace(/<\/think>/g, '')
+    cleaned = cleaned.replace(/<thought>/g, '').replace(/<\/thought>/g, '')
+    cleaned = cleaned.replace(/<analysis>/g, '').replace(/<\/analysis>/g, '')
+    // Also remove AI marker comments that look like sections
+    cleaned = cleaned.replace(/^##\s+Walkthrough.*$/gm, '')
+    cleaned = cleaned.replace(/^##\s+Changes.*$/gm, '')
+    cleaned = cleaned.replace(/^##\s+.*$/gm, '').trim()
+    return cleaned.replace(/^#{1,6}\s+.+$/gm, '').trim()
   }
 
   const [walkthroughRaw] = await leaderBot.chat(
