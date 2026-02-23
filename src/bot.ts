@@ -14,6 +14,11 @@ export class Bot {
   private readonly options: Options
   private readonly providerOptions: ProviderOptions
 
+  // Expose model name for use in reporting which model found issues
+  get modelName(): string {
+    return this.providerOptions.model
+  }
+
   constructor(options: Options, providerOptions: ProviderOptions) {
     this.options = options
     this.providerOptions = providerOptions

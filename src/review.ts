@@ -544,8 +544,8 @@ ${hunks.oldHunk}
   }
 
   const reviewBots = [
-    {name: 'leader', bot: leaderBot},
-    ...helperBots.map((bot, index) => ({name: `helper-${index + 1}`, bot}))
+    {name: leaderBot.modelName, bot: leaderBot},
+    ...helperBots.map((bot) => ({name: bot.modelName, bot}))
   ]
 
   const allReviewerFindings: ParsedReviewerFinding[] = []
