@@ -10143,15 +10143,11 @@ IMPORTANT: Entire response must be in the language with ISO code: ${this.options
 "use strict";
 /* harmony export */ __nccwpck_require__.d(__webpack_exports__, {
 /* harmony export */   "Es": () => (/* binding */ Commenter),
-/* harmony export */   "O$": () => (/* binding */ SHORT_SUMMARY_START_TAG),
 /* harmony export */   "Rp": () => (/* binding */ SUMMARIZE_TAG),
 /* harmony export */   "Rs": () => (/* binding */ COMMENT_TAG),
-/* harmony export */   "Zb": () => (/* binding */ SHORT_SUMMARY_END_TAG),
-/* harmony export */   "aD": () => (/* binding */ COMMENT_REPLY_TAG),
-/* harmony export */   "oi": () => (/* binding */ RAW_SUMMARY_START_TAG),
-/* harmony export */   "rV": () => (/* binding */ RAW_SUMMARY_END_TAG)
+/* harmony export */   "aD": () => (/* binding */ COMMENT_REPLY_TAG)
 /* harmony export */ });
-/* unused harmony exports COMMENT_GREETING, IN_PROGRESS_START_TAG, IN_PROGRESS_END_TAG, DESCRIPTION_START_TAG, DESCRIPTION_END_TAG, COMMIT_ID_START_TAG, COMMIT_ID_END_TAG */
+/* unused harmony exports COMMENT_GREETING, IN_PROGRESS_START_TAG, IN_PROGRESS_END_TAG, DESCRIPTION_START_TAG, DESCRIPTION_END_TAG, RAW_SUMMARY_START_TAG, RAW_SUMMARY_END_TAG, SHORT_SUMMARY_START_TAG, SHORT_SUMMARY_END_TAG, COMMIT_ID_START_TAG, COMMIT_ID_END_TAG */
 /* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(2186);
 /* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__nccwpck_require__.n(_actions_core__WEBPACK_IMPORTED_MODULE_0__);
 /* harmony import */ var _actions_github__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(5438);
@@ -14951,26 +14947,8 @@ ${discardedFindings
 None
 
 </details>`;
-    let summarizeComment = `## Walkthrough
-${walkthrough}
-
-## Changes
-| File | Summary |
-| --- | --- |
-${changesTable}
-
-## Findings
-${groupedFindings || 'No actionable findings.'}
-
-${discardedSection}
-
-${lib_commenter/* RAW_SUMMARY_START_TAG */.oi}
-${inputs.rawSummary}
-${lib_commenter/* RAW_SUMMARY_END_TAG */.rV}
-${lib_commenter/* SHORT_SUMMARY_START_TAG */.O$}
-${inputs.shortSummary}
-${lib_commenter/* SHORT_SUMMARY_END_TAG */.Zb}
-`;
+    // Simplified output: only findings sections, nothing else
+    let summarizeComment = groupedFindings || 'No actionable findings.';
     summarizeComment += `\n${commenter.addReviewedCommitId(existingCommitIdsBlock, commits[commits.length - 1].sha)}`;
     await commenter.comment(`${summarizeComment}`, lib_commenter/* SUMMARIZE_TAG */.Rp, 'replace');
 };

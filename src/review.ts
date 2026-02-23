@@ -759,26 +759,8 @@ None
 
 </details>`
 
-  let summarizeComment = `## Walkthrough
-${walkthrough}
-
-## Changes
-| File | Summary |
-| --- | --- |
-${changesTable}
-
-## Findings
-${groupedFindings || 'No actionable findings.'}
-
-${discardedSection}
-
-${RAW_SUMMARY_START_TAG}
-${inputs.rawSummary}
-${RAW_SUMMARY_END_TAG}
-${SHORT_SUMMARY_START_TAG}
-${inputs.shortSummary}
-${SHORT_SUMMARY_END_TAG}
-`
+  // Simplified output: only findings sections, nothing else
+  let summarizeComment = groupedFindings || 'No actionable findings.'
 
   summarizeComment += `\n${commenter.addReviewedCommitId(
     existingCommitIdsBlock,
