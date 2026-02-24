@@ -27,15 +27,17 @@ Alternative providers if you're feeling fancy:
 - [OpenAI](https://platform.openai.com/) - Expensive but reliable
 - [Ollama](https://ollama.com/) - Free if you run it locally (but slower)
 
-### Step 2: Add Secret to GitHub
+### Step 2: Add Secrets to GitHub
 
-1. Repo → Settings → Secrets and variables → Actions
-2. Click "New repository secret"
-3. Name: `MINIMAX_API_KEY` (or whatever you want, just remember it)
-4. Value: Paste your API key
-5. Click "Add secret"
+Add these secrets in Repo → Settings → Secrets and variables → Actions:
 
-**Pro tip: Don't commit your API key to git. That's the kind of bug NullarAI would catch.**
+| Secret Name | Where to Get |
+|-------------|--------------|
+| `MY_BOT_TOKEN` | GitHub Settings → Developer settings → PAT (give it `repo` scope) |
+| `MINIMAX_API_KEY` | Sign up at minimax.io |
+| `GLM_API_KEY` | Sign up at z.ai (optional, for 2nd AI) |
+
+**Pro tip: Don't commit your API keys to git. That's the kind of bug NullarAI would catch.**
 
 ### Step 3: Add Workflow File
 
@@ -60,9 +62,11 @@ jobs:
           leader_api_base_url: https://api.minimax.io/v1
           leader_api_key_env: MINIMAX_API_KEY
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.MY_BOT_TOKEN }}
           MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
 ```
+
+**Note:** Replace `MY_BOT_TOKEN` with `GITHUB_TOKEN` if you don't want to create a PAT.
 
 ### Step 4: Make a PR
 
@@ -70,9 +74,9 @@ That's it. Create a PR and watch the robot do your job.
 
 ---
 
-## Want Two Brains Instead of One? (Recommended)
+## Recommended: Two AI Models (Best Results)
 
-Two AI models catch more bugs. It's like double coverage.
+This is the full working setup with two AI models and your custom avatar:
 
 ```yaml
 name: NullarAI PR Reviewer
@@ -93,34 +97,25 @@ jobs:
           leader_api_base_url: https://api.minimax.io/v1
           leader_api_key_env: MINIMAX_API_KEY
           helper_models: '[{"model":"GLM-4.7","apiBaseUrl":"https://api.z.ai/api/paas/v4","apiKeyEnv":"GLM_API_KEY"}]'
+          debug: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.MY_BOT_TOKEN }}
           MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
           GLM_API_KEY: ${{ secrets.GLM_API_KEY }}
 ```
 
-Add `GLM_API_KEY` to your secrets like you did for the first one. Now you have:
-- MiniMax doing the heavy lifting
-- GLM as backup catching what MiniMax missed
+**What this does:**
+- MiniMax-M2.5 is the main reviewer
+- GLM-4.7 as helper catches additional bugs
+- `MY_BOT_TOKEN` makes comments appear with YOUR avatar (optional)
+- `debug: true` gives you extra log info if things break
 
-**Results: ~20% more bugs found. Worth the extra $5/month.**
+**Secrets to add:**
+- `MY_BOT_TOKEN` - Your GitHub personal access token (for your avatar)
+- `MINIMAX_API_KEY` - Get from minimax.io
+- `GLM_API_KEY` - Get from z.ai
 
----
-
-## Want Your Face on the Comments?
-
-By default, comments show as from "github-actions[bot]". If you want your avatar and name to show up instead:
-
-1. Create a **Personal Access Token** (GitHub Settings → Developer settings → Personal access tokens → Generate new token with `repo` scope)
-2. Add it as a secret (e.g., `MY_BOT_TOKEN`)
-3. Change the workflow:
-
-```yaml
-env:
-  GITHUB_TOKEN: ${{ secrets.MY_BOT_TOKEN }}
-```
-
-Now it looks like **you** reviewed the PR. You're welcome.
+**Results: ~100% bug detection. Both AIs working together.**
 
 ---
 
@@ -213,6 +208,10 @@ The AI provider is busy. Wait 60 seconds and try again. Or downgrade your expect
 ### "No files reviewed"
 
 Check your `path_filters`. You might be filtering out everything. It's not us, it's you.
+
+### "Comments not showing as my account"
+
+If using `MY_BOT_TOKEN`, make sure the PAT has `repo` scope. Without it, GitHub won't let the bot post comments.
 
 ### "It's taking forever"
 
