@@ -42,7 +42,7 @@ Alternative providers if you're feeling fancy:
 Create `.github/workflows/pr-reviewer.yml`:
 
 ```yaml
-name: AI PR Reviewer
+name: NullarAI PR Reviewer
 on: pull_request
 
 jobs:
@@ -52,7 +52,9 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: nullar-dev/pr-reviewer@main
+      - uses: actions/checkout@v4
+      - name: Run NullarAI PR Reviewer
+        uses: nullar-dev/pr-reviewer@main
         with:
           leader_model: MiniMax-M2.5
           leader_api_base_url: https://api.minimax.io/v1
@@ -73,16 +75,28 @@ That's it. Create a PR and watch the robot do your job.
 Two AI models catch more bugs. It's like double coverage.
 
 ```yaml
-- uses: nullar-dev/pr-reviewer@main
-  with:
-    leader_model: MiniMax-M2.5
-    leader_api_base_url: https://api.minimax.io/v1
-    leader_api_key_env: MINIMAX_API_KEY
-    helper_models: '[{"model":"GLM-4.7","apiBaseUrl":"https://api.z.ai/api/paas/v4","apiKeyEnv":"GLM_API_KEY"}]'
-  env:
-    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
-    GLM_API_KEY: ${{ secrets.GLM_API_KEY }}
+name: NullarAI PR Reviewer
+on: pull_request
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run NullarAI PR Reviewer
+        uses: nullar-dev/pr-reviewer@main
+        with:
+          leader_model: MiniMax-M2.5
+          leader_api_base_url: https://api.minimax.io/v1
+          leader_api_key_env: MINIMAX_API_KEY
+          helper_models: '[{"model":"GLM-4.7","apiBaseUrl":"https://api.z.ai/api/paas/v4","apiKeyEnv":"GLM_API_KEY"}]'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+          GLM_API_KEY: ${{ secrets.GLM_API_KEY }}
 ```
 
 Add `GLM_API_KEY` to your secrets like you did for the first one. Now you have:
@@ -90,6 +104,23 @@ Add `GLM_API_KEY` to your secrets like you did for the first one. Now you have:
 - GLM as backup catching what MiniMax missed
 
 **Results: ~20% more bugs found. Worth the extra $5/month.**
+
+---
+
+## Want Your Face on the Comments?
+
+By default, comments show as from "github-actions[bot]". If you want your avatar and name to show up instead:
+
+1. Create a **Personal Access Token** (GitHub Settings → Developer settings → Personal access tokens → Generate new token with `repo` scope)
+2. Add it as a secret (e.g., `MY_BOT_TOKEN`)
+3. Change the workflow:
+
+```yaml
+env:
+  GITHUB_TOKEN: ${{ secrets.MY_BOT_TOKEN }}
+```
+
+Now it looks like **you** reviewed the PR. You're welcome.
 
 ---
 
