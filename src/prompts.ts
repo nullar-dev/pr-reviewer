@@ -592,7 +592,6 @@ ABSENCE REASONING - What's MISSING:
 Output format:
 ### FILENAME:LINES
 SEVERITY: critical|major|minor|nit
-CONFIDENCE: 0-100%
 TITLE: short title
 DETAILS: specific rationale and fix
 ---
@@ -681,7 +680,6 @@ ABSENCE REASONING - What's MISSING:
 Output format:
 ### FILENAME:LINES
 SEVERITY: critical|major|minor|nit
-CONFIDENCE: 0-100%
 TITLE: short title
 DETAILS: specific rationale and fix
 ---
@@ -750,7 +748,6 @@ ABSENCE REASONING - What's MISSING:
 Output format:
 ### FILENAME:LINES
 SEVERITY: critical|major|minor|nit
-CONFIDENCE: 0-100%
 TITLE: short title
 DETAILS: specific rationale and fix
 ---
@@ -963,7 +960,6 @@ ABSENCE REASONING - What's MISSING:
 Output format:
 ### FILENAME:LINES
 SEVERITY: critical|major|minor|nit
-CONFIDENCE: 0-100%
 TITLE: short title
 DETAILS: specific rationale and fix
 ---
@@ -1067,7 +1063,6 @@ ABSENCE REASONING - What's MISSING:
 Output format:
 ### FILENAME:LINES
 SEVERITY: critical|major|minor|nit
-CONFIDENCE: 0-100%
 TITLE: short title
 DETAILS: specific rationale and fix
 ---
