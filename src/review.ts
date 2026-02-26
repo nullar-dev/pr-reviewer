@@ -684,10 +684,10 @@ ${commentChain}
     }
 
     // Extract details - everything after DETAILS:
-    let details = f.comment.trim().substring(0, 500)
+    let details = f.comment.trim().substring(0, 2000)
     const detailsMatch = f.comment.match(/DETAILS:\s*([\s\S]*)/i)
     if (detailsMatch) {
-      details = detailsMatch[1].trim().substring(0, 500)
+      details = detailsMatch[1].trim().substring(0, 2000)
     }
 
     // Get all reviewers who found this issue
