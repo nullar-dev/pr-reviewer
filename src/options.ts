@@ -132,7 +132,7 @@ export class Options {
     info(`max_files: ${this.maxFiles}`)
     info(`review_simple_changes: ${this.reviewSimpleChanges}`)
     info(`review_comment_lgtm: ${this.reviewCommentLGTM}`)
-    info(`path_filters: ${this.pathFilters}`)
+    info(`path_filters: ${this.pathFilters.toString()}`)
     info(`system_message: ${this.systemMessage}`)
     info(`leader_model: ${this.leaderModel}`)
     info(`leader_api_base_url: ${this.leaderApiBaseUrl}`)
@@ -256,6 +256,10 @@ export class PathFilter {
     }
 
     return (!inclusionRuleExists || included) && !excluded
+  }
+
+  toString(): string {
+    return this.rules.length > 0 ? this.rules.map(([r, e]) => (e ? '!' : '') + r).join(', ') : '(none)'
   }
 }
 
