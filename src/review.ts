@@ -27,7 +27,6 @@ interface Review {
   endLine: number
   comment: string
   severity?: string
-  confidence?: number
 }
 
 interface ParsedReviewerFinding extends Review {
@@ -38,7 +37,6 @@ interface ParsedReviewerFinding extends Review {
 
 interface LeaderAcceptedFinding {
   severity: 'critical' | 'major' | 'minor' | 'nit'
-  confidence: number
   file: string
   lines: string
   title: string
@@ -675,13 +673,6 @@ ${commentChain}
       severity = 'nit'
     }
 
-    // Extract confidence score from comment (format: "CONFIDENCE: XX%")
-    let confidence = 80 // Default confidence
-    const confidenceMatch = f.comment.match(/CONFIDENCE:\s*(\d+)%/i)
-    if (confidenceMatch) {
-      confidence = parseInt(confidenceMatch[1], 10)
-    }
-
     // Extract title from comment (format: "TITLE: ..." or "### FILENAME:LINES\nSEVERITY: ...\nTITLE: ...")
     // Don't include "Issue found by" here - it will be added in the output format
     let title = 'Code issue'
@@ -704,7 +695,6 @@ ${commentChain}
 
     return {
       severity,
-      confidence,
       title,
       details,
       file: f.filename,
@@ -740,11 +730,11 @@ No issues found.
 
 </details>`
       }
-      // Clean simple format: filename (lines): Issue found by model(s). Title. Details. Confidence: XX%
+      // Clean simple format: filename (lines): Issue found by model(s). Title. Details
       const simpleFindings = findings
         .map(f => {
           const reviewers = f.reviewers?.join(', ') || 'reviewer'
-          return `${f.file} (${f.lines}): Issue found by ${reviewers}. ${f.title}. ${f.details.replace(/\n/g, ' ')}. Confidence: ${f.confidence || 80}%`
+          return `${f.file} (${f.lines}): Issue found by ${reviewers}. ${f.title}. ${f.details.replace(/\n/g, ' ')}`
         })
         .join('\n\n')
       // Collapsible with emoji header
@@ -1073,11 +1063,7 @@ export function parseLeaderAcceptedFindings(
       title !== '' &&
       details !== ''
     ) {
-      // Extract confidence if present
-      const confidenceStr = block.match(/CONFIDENCE:\s*(\d+)%/i)?.[1] ?? '80'
-      const confidence = parseInt(confidenceStr, 10)
-
-      accepted.push({severity, confidence, file, lines, title, details, reviewers: ['leader']})
+      accepted.push({severity, file, lines, title, details, reviewers: ['leader']})
     }
   }
 
